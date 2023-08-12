@@ -2161,6 +2161,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "rust-struct-to-wgsl-example"
+version = "0.16.0"
+dependencies = [
+ "bytemuck",
+ "console_error_panic_hook",
+ "console_log",
+ "env_logger",
+ "futures-intrusive",
+ "log",
+ "pollster",
+ "wasm-bindgen-futures",
+ "wasm-bindgen-test",
+ "web-sys",
+ "wgpu",
+ "wgpu-test",
+]
+
+[[package]]
 name = "rustc-demangle"
 version = "0.1.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"

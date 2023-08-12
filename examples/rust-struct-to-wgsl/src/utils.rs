@@ -1,0 +1,85 @@
+pub fn example_create_bind_group(
+    device: &wgpu::Device,
+    input_struct_buffer: &wgpu::Buffer,
+    member_buffers: &[&wgpu::Buffer],
+) -> (wgpu::BindGroupLayout, wgpu::BindGroup) {
+    let mut layout_entries =
+        Vec::<wgpu::BindGroupLayoutEntry>::with_capacity(member_buffers.len() + 1);
+    layout_entries.push(wgpu::BindGroupLayoutEntry {
+        binding: 0,
+        visibility: wgpu::ShaderStages::COMPUTE,
+        ty: wgpu::BindingType::Buffer {
+            ty: wgpu::BufferBindingType::Storage { read_only: true },
+            has_dynamic_offset: false,
+            min_binding_size: Some(std::num::NonZeroU64::new(input_struct_buffer.size()).unwrap())
+        },
+        count: None,
+    });
+    for (i, b) in member_buffers.iter().enumerate() {
+        layout_entries.push(wgpu::BindGroupLayoutEntry {
+            binding: i as u32 + 1,
+            visibility: wgpu::ShaderStages::COMPUTE,
+            ty: wgpu::BindingType::Buffer {
+                ty: wgpu::BufferBindingType::Storage { read_only: false },
+                has_dynamic_offset: false,
+                min_binding_size: Some(std::num::NonZeroU64::new(b.size()).unwrap()),
+            },
+            count: None,
+        });
+    }
+    let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+        label: None,
+        entries: &layout_entries,
+    });
+
+    let mut bind_group_entries =
+        Vec::<wgpu::BindGroupEntry>::with_capacity(member_buffers.len() + 1);
+    bind_group_entries.push(wgpu::BindGroupEntry {
+        binding: 0,
+        resource: input_struct_buffer.as_entire_binding(),
+    });
+    for (i, b) in member_buffers.iter().enumerate() {
+        bind_group_entries.push(wgpu::BindGroupEntry {
+            binding: i as u32 + 1,
+            resource: b.as_entire_binding(),
+        });
+    }
+    let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        label: None,
+        layout: &bind_group_layout,
+        entries: &bind_group_entries,
+    });
+
+    (bind_group_layout, bind_group)
+}
+
+/// Gets a value from a buffer using a mappable staging buffer and a
+/// transmuter function that takes a buffer view of the bytes of the value
+/// and returns the Rust value in the buffer.
+pub async fn get_value_from_buffer<T>(
+    buffer: &wgpu::Buffer,
+    staging_buffer: &wgpu::Buffer,
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
+    transmuter_fn: impl FnOnce(wgpu::BufferView) -> T,
+) -> T {
+    let size_in_buffer = buffer.size();
+
+    let mut command_encoder =
+        device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+    command_encoder.copy_buffer_to_buffer(&buffer, 0, &staging_buffer, 0, size_in_buffer);
+    queue.submit(Some(command_encoder.finish()));
+
+    let buffer_slice = staging_buffer.slice(..size_in_buffer);
+
+    let (sender, receiver) = futures_intrusive::channel::shared::oneshot_channel();
+    buffer_slice.map_async(wgpu::MapMode::Read, move |r| sender.send(r).unwrap());
+    device.poll(wgpu::Maintain::Wait);
+    receiver.receive().await.unwrap().unwrap();
+
+    let output = transmuter_fn(buffer_slice.get_mapped_range());
+
+    staging_buffer.unmap();
+
+    output
+}
