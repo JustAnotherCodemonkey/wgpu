@@ -1,9 +1,7 @@
-use crate::get_value_from_buffer;
-
 use super::{
-    SystemContext, Beginner, beginner, Intermediate, intermediate, Advanced, advanced,
-    example_create_bind_group,
-    structs::{AdvancedInner, AsWgslBytes},
+    advanced, beginner, example_create_bind_group, intermediate,
+    structs::{AdvancedInner, AsWgslBytes, FromWgslBuffers},
+    Advanced, Beginner, Intermediate, SystemContext,
 };
 
 use pollster::FutureExt;
@@ -45,31 +43,38 @@ async fn advanced_inner(sc: &SystemContext, input: &AdvancedInner) -> AdvancedIn
     let (bind_group_layout, bind_group) = example_create_bind_group(
         &sc.device,
         &input_buffer,
-        &[&a_output_buffer, &b_output_buffer, &c_output_buffer]
+        &[&a_output_buffer, &b_output_buffer, &c_output_buffer],
     );
 
-    let shader_module = sc.device.create_shader_module(wgpu::ShaderModuleDescriptor {
-        label: None,
-        source: wgpu::ShaderSource::Wgsl(
-            std::borrow::Cow::Borrowed(include_str!("test-advanced-inner.wgsl"))
-        ),
-    });
+    let shader_module = sc
+        .device
+        .create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: None,
+            source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(include_str!(
+                "test-advanced-inner.wgsl"
+            ))),
+        });
 
-    let pipeline_layout = sc.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-        label: None,
-        bind_group_layouts: &[&bind_group_layout],
-        push_constant_ranges: &[],
-    });
-    let compute_pipeline = sc.device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-        label: None,
-        layout: Some(&pipeline_layout),
-        module: &shader_module,
-        entry_point: "main",
-    });
+    let pipeline_layout = sc
+        .device
+        .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: None,
+            bind_group_layouts: &[&bind_group_layout],
+            push_constant_ranges: &[],
+        });
+    let compute_pipeline = sc
+        .device
+        .create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+            label: None,
+            layout: Some(&pipeline_layout),
+            module: &shader_module,
+            entry_point: "main",
+        });
 
     sc.queue.write_buffer(&input_buffer, 0, &input_bytes);
-    let mut command_encoder =
-        sc.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+    let mut command_encoder = sc
+        .device
+        .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
     {
         let mut compute_pass =
             command_encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: None });
@@ -79,60 +84,12 @@ async fn advanced_inner(sc: &SystemContext, input: &AdvancedInner) -> AdvancedIn
     }
     sc.queue.submit(Some(command_encoder.finish()));
 
-    let final_a = get_value_from_buffer(
-        &a_output_buffer,
+    AdvancedInner::from_wgsl_buffers(
+        &[&a_output_buffer, &b_output_buffer, &c_output_buffer],
         &output_staging_buffer,
         &sc.device,
         &sc.queue,
-        |view| {
-            let mut output = [0i32; 2];
-            for (i, v) in output.iter_mut().enumerate() {
-                let mut bytes = [0u8; 4];
-                bytes.copy_from_slice(&view[(i * 4)..(i * 4 + 4)]);
-                *v = i32::from_le_bytes(bytes);
-            }
-            output
-        }
-    ).await;
-    let final_b = get_value_from_buffer(
-        &b_output_buffer,
-        &output_staging_buffer,
-        &sc.device,
-        &sc.queue,
-        |view| {
-            let mut floats = [0f32; 8];
-            for (i, v) in floats.iter_mut().enumerate() {
-                let mut bytes = [0u8; 4];
-                bytes.copy_from_slice(&view[(i * 4)..(i * 4 + 4)]);
-                *v = f32::from_le_bytes(bytes);
-            }
-            let mut output = [[0f32; 2]; 4];
-            for (rn, row) in output.iter_mut().enumerate() {
-                let row_len = row.len();
-                for (vn, v) in row.iter_mut().enumerate() {
-                    *v = floats[rn * row_len + vn];
-                }
-            }
-            output
-        }
-    ).await;
-    let final_c = get_value_from_buffer(
-        &c_output_buffer,
-        &output_staging_buffer,
-        &sc.device,
-        &sc.queue,
-        |view| {
-            let mut bytes = [0u8; 4];
-            bytes.copy_from_slice(&view);
-            i32::from_le_bytes(bytes)
-        }
-    ).await;
-
-    AdvancedInner {
-        a: final_a,
-        b: final_b,
-        c: final_c,
-    }
+    )
 }
 
 #[test]
@@ -144,15 +101,9 @@ fn rust_struct_to_wgsl_test_beginner() {
     let sc = SystemContext::new().block_on();
 
     t(
-        Beginner {
-            a: 0,
-            b: [0f32; 2]
-        },
-        Beginner {
-            a: 1,
-            b: [1f32; 2],
-        },
-        &sc
+        Beginner { a: 0, b: [0f32; 2] },
+        Beginner { a: 1, b: [1f32; 2] },
+        &sc,
     );
 }
 
@@ -175,7 +126,7 @@ fn rust_struct_to_wgsl_test_intermediate() {
             b: [1.0; 3],
             c: [1; 2],
         },
-        &sc
+        &sc,
     );
 }
 
@@ -198,7 +149,7 @@ fn rust_struct_to_wgsl_test_advanced_inner() {
             b: [[1.0; 2]; 4],
             c: 1,
         },
-        &sc
+        &sc,
     );
 }
 
@@ -217,7 +168,7 @@ fn rust_struct_to_wgsl_test_advanced() {
             c: AdvancedInner {
                 a: [0; 2],
                 b: [[0.0; 2]; 4],
-                c: 0
+                c: 0,
             },
             d: 0,
         },
@@ -227,10 +178,10 @@ fn rust_struct_to_wgsl_test_advanced() {
             c: AdvancedInner {
                 a: [1; 2],
                 b: [[1.0; 2]; 4],
-                c: 1
+                c: 1,
             },
             d: 1,
         },
-        &sc
+        &sc,
     );
 }

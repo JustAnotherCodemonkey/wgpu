@@ -11,7 +11,7 @@ pub fn example_create_bind_group(
         ty: wgpu::BindingType::Buffer {
             ty: wgpu::BufferBindingType::Storage { read_only: true },
             has_dynamic_offset: false,
-            min_binding_size: Some(std::num::NonZeroU64::new(input_struct_buffer.size()).unwrap())
+            min_binding_size: Some(std::num::NonZeroU64::new(input_struct_buffer.size()).unwrap()),
         },
         count: None,
     });
@@ -53,21 +53,17 @@ pub fn example_create_bind_group(
     (bind_group_layout, bind_group)
 }
 
-/// Gets a value from a buffer using a mappable staging buffer and a
-/// transmuter function that takes a buffer view of the bytes of the value
-/// and returns the Rust value in the buffer.
-pub async fn get_value_from_buffer<T>(
+pub async fn get_bytes_from_buffer(
     buffer: &wgpu::Buffer,
     staging_buffer: &wgpu::Buffer,
     device: &wgpu::Device,
     queue: &wgpu::Queue,
-    transmuter_fn: impl FnOnce(wgpu::BufferView) -> T,
-) -> T {
+) -> Vec<u8> {
     let size_in_buffer = buffer.size();
 
     let mut command_encoder =
         device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
-    command_encoder.copy_buffer_to_buffer(&buffer, 0, &staging_buffer, 0, size_in_buffer);
+    command_encoder.copy_buffer_to_buffer(buffer, 0, staging_buffer, 0, size_in_buffer);
     queue.submit(Some(command_encoder.finish()));
 
     let buffer_slice = staging_buffer.slice(..size_in_buffer);
@@ -77,9 +73,58 @@ pub async fn get_value_from_buffer<T>(
     device.poll(wgpu::Maintain::Wait);
     receiver.receive().await.unwrap().unwrap();
 
-    let output = transmuter_fn(buffer_slice.get_mapped_range());
+    let output = buffer_slice.get_mapped_range().to_vec();
 
     staging_buffer.unmap();
 
     output
+}
+
+/// Used for implementations of [`FromWgslBuffers`](super::structs::FromWgslBuffers).
+pub fn validate_buffers_for_from_wgsl_bytes<T>(
+    buffers_vec: &[&wgpu::Buffer],
+    buffer_sizes: &[u64],
+    staging_buffer: &wgpu::Buffer,
+) {
+    if !staging_buffer
+        .usage()
+        .contains(wgpu::BufferUsages::MAP_READ)
+        || !staging_buffer
+            .usage()
+            .contains(wgpu::BufferUsages::COPY_DST)
+    {
+        panic!(
+            "Staging buffer was did not have the proper usages.
+        Needs MAP_READ and COPY_DST."
+        );
+    }
+
+    if buffers_vec.len() < buffer_sizes.len() {
+        panic!(
+            "Vec of input buffers {:?} did not contain enough buffers to \
+        construct struct {}",
+            buffers_vec,
+            std::any::type_name::<T>()
+        );
+    }
+    if buffers_vec.len() > buffer_sizes.len() {
+        log::warn!(
+            "Input buffers vec had more buffers than was necessary to \
+        construct struct {}.",
+            std::any::type_name::<T>()
+        );
+    }
+
+    for (i, s) in buffer_sizes.iter().enumerate() {
+        if *s != buffers_vec[i].size() {
+            panic!(
+                "Struct {} expected buffer {:?} to have a size of {} but the actual \
+            size was {}.",
+                std::any::type_name::<T>(),
+                buffers_vec[i],
+                s,
+                buffers_vec[i].size()
+            );
+        }
+    }
 }

@@ -1,6 +1,10 @@
-// Conversion implementations are at the very bottom of the file to avoid spoiling it.
-// Try to see if you can figure out how you would do each one before you look
-// at its respective function.
+// Try looking at the structs and guessing, yourself, what we will do to format it
+// into bytes for WGSL. The solutions with explanations are just below the structs
+// themselves.
+
+use pollster::FutureExt;
+
+use super::utils::{get_bytes_from_buffer, validate_buffers_for_from_wgsl_bytes};
 
 /// This should be easy to do.
 #[derive(Debug, Clone, PartialEq)]
@@ -79,7 +83,7 @@ impl AsWgslBytes for Beginner {
         // need 4 more bytes. Let's add those now.
         bytes.resize(bytes.len() + 4, 0);
         // Now we can add the bytes of b.
-        bytes.extend(self.b.iter().map(|v| v.to_le_bytes()).flatten());
+        bytes.extend(self.b.iter().flat_map(|v| v.to_le_bytes()));
 
         // And our struct is now sized at a multiple of it's alignment
         // (8 because its largest member, b, has an alignment of 8).
@@ -229,5 +233,204 @@ impl AsWgslBytes for AdvancedInner {
         bytes.resize(bytes.len() + 4, 0);
 
         bytes
+    }
+}
+
+/// Utility for converting from a series of member buffers into an example struct.
+pub trait FromWgslBuffers {
+    fn desired_buffer_sizes() -> Vec<u64>;
+
+    fn from_wgsl_buffers(
+        buffers: &[&wgpu::Buffer],
+        staging_buffer: &wgpu::Buffer,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+    ) -> Self;
+}
+
+impl FromWgslBuffers for Beginner {
+    fn desired_buffer_sizes() -> Vec<u64> {
+        vec![4, 8]
+    }
+
+    fn from_wgsl_buffers(
+        buffers: &[&wgpu::Buffer],
+        staging_buffer: &wgpu::Buffer,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+    ) -> Self {
+        #[cfg(debug_assertions)]
+        validate_buffers_for_from_wgsl_bytes::<Self>(
+            buffers,
+            &Beginner::desired_buffer_sizes(),
+            staging_buffer,
+        );
+
+        let a = i32::from_le_bytes(
+            <[u8; 4]>::try_from(
+                get_bytes_from_buffer(buffers[0], staging_buffer, device, queue)
+                    .block_on()
+                    .as_slice(),
+            )
+            .unwrap(),
+        );
+        let b = <[f32; 2]>::try_from(
+            get_bytes_from_buffer(buffers[1], staging_buffer, device, queue)
+                .block_on()
+                .chunks_exact(4)
+                .map(|chunk| f32::from_le_bytes(<[u8; 4]>::try_from(chunk).unwrap()))
+                .collect::<Vec<f32>>()
+                .as_slice(),
+        )
+        .unwrap();
+
+        Beginner { a, b }
+    }
+}
+
+impl FromWgslBuffers for Intermediate {
+    fn desired_buffer_sizes() -> Vec<u64> {
+        vec![4, 12, 8]
+    }
+
+    fn from_wgsl_buffers(
+        buffers: &[&wgpu::Buffer],
+        staging_buffer: &wgpu::Buffer,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+    ) -> Self {
+        #[cfg(debug_assertions)]
+        validate_buffers_for_from_wgsl_bytes::<Self>(
+            buffers,
+            &Intermediate::desired_buffer_sizes(),
+            staging_buffer,
+        );
+
+        let a = i32::from_le_bytes(
+            <[u8; 4]>::try_from(
+                get_bytes_from_buffer(buffers[0], staging_buffer, device, queue)
+                    .block_on()
+                    .as_slice(),
+            )
+            .unwrap(),
+        );
+        let b = <[f32; 3]>::try_from(
+            get_bytes_from_buffer(buffers[1], staging_buffer, device, queue)
+                .block_on()
+                .chunks_exact(4)
+                .map(|chunk| f32::from_le_bytes(<[u8; 4]>::try_from(chunk).unwrap()))
+                .collect::<Vec<f32>>()
+                .as_slice(),
+        )
+        .unwrap();
+        let c = <[i32; 2]>::try_from(
+            get_bytes_from_buffer(buffers[2], staging_buffer, device, queue)
+                .block_on()
+                .chunks_exact(4)
+                .map(|chunk| i32::from_le_bytes(<[u8; 4]>::try_from(chunk).unwrap()))
+                .collect::<Vec<i32>>()
+                .as_slice(),
+        )
+        .unwrap();
+
+        Intermediate { a, b, c }
+    }
+}
+
+impl FromWgslBuffers for AdvancedInner {
+    fn desired_buffer_sizes() -> Vec<u64> {
+        vec![8, 32, 4]
+    }
+
+    fn from_wgsl_buffers(
+        buffers: &[&wgpu::Buffer],
+        staging_buffer: &wgpu::Buffer,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+    ) -> Self {
+        #[cfg(debug_assertions)]
+        validate_buffers_for_from_wgsl_bytes::<AdvancedInner>(
+            buffers,
+            &AdvancedInner::desired_buffer_sizes(),
+            staging_buffer,
+        );
+
+        let a = <[i32; 2]>::try_from(
+            get_bytes_from_buffer(buffers[0], staging_buffer, device, queue)
+                .block_on()
+                .chunks_exact(4)
+                .map(|chunk| i32::from_le_bytes(<[u8; 4]>::try_from(chunk).unwrap()))
+                .collect::<Vec<i32>>()
+                .as_slice(),
+        )
+        .unwrap();
+        let b = <[[f32; 2]; 4]>::try_from(
+            get_bytes_from_buffer(buffers[1], staging_buffer, device, queue)
+                .block_on()
+                .chunks_exact(4)
+                .map(|chunk| f32::from_le_bytes(<[u8; 4]>::try_from(chunk).unwrap()))
+                .collect::<Vec<f32>>()
+                .chunks_exact(2)
+                .map(|chunk| <[f32; 2]>::try_from(chunk).unwrap())
+                .collect::<Vec<[f32; 2]>>()
+                .as_slice(),
+        )
+        .unwrap();
+        let c = i32::from_le_bytes(
+            <[u8; 4]>::try_from(
+                get_bytes_from_buffer(buffers[2], staging_buffer, device, queue)
+                    .block_on()
+                    .as_slice(),
+            )
+            .unwrap(),
+        );
+
+        AdvancedInner { a, b, c }
+    }
+}
+
+impl FromWgslBuffers for Advanced {
+    fn desired_buffer_sizes() -> Vec<u64> {
+        vec![4, 12, 8, 32, 4, 4]
+    }
+
+    /// Buffers are in order [a, b, c.a, c.b, c.c, d].
+    fn from_wgsl_buffers(
+        member_buffers: &[&wgpu::Buffer],
+        staging_buffer: &wgpu::Buffer,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+    ) -> Self {
+        #[cfg(debug_assertions)]
+        validate_buffers_for_from_wgsl_bytes::<Advanced>(
+            member_buffers,
+            &Advanced::desired_buffer_sizes(),
+            staging_buffer,
+        );
+
+        let a = u32::from_le_bytes(
+            <[u8; 4]>::try_from(
+                get_bytes_from_buffer(member_buffers[0], staging_buffer, device, queue).block_on(),
+            )
+            .unwrap(),
+        );
+        let b = <[i32; 3]>::try_from(
+            get_bytes_from_buffer(member_buffers[1], staging_buffer, device, queue)
+                .block_on()
+                .chunks_exact(4)
+                .map(|chunk| i32::from_le_bytes(<[u8; 4]>::try_from(chunk).unwrap()))
+                .collect::<Vec<i32>>()
+                .as_slice(),
+        )
+        .unwrap();
+        let c = AdvancedInner::from_wgsl_buffers(&member_buffers[2..5], staging_buffer, device, queue);
+        let d = i32::from_le_bytes(
+            <[u8; 4]>::try_from(
+                get_bytes_from_buffer(member_buffers[5], staging_buffer, device, queue).block_on(),
+            )
+            .unwrap(),
+        );
+
+        Advanced { a, b, c, d }
     }
 }

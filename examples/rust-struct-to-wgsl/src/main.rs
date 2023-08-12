@@ -1,10 +1,12 @@
 mod structs;
-mod utils;
 #[cfg(test)]
 mod tests;
+mod utils;
 
-use structs::{Advanced, Beginner, InUniform, Intermediate, AsWgslBytes, AdvancedInner};
-use utils::{example_create_bind_group, get_value_from_buffer};
+use structs::{
+    Advanced, AdvancedInner, AsWgslBytes, Beginner, FromWgslBuffers, InUniform, Intermediate,
+};
+use utils::example_create_bind_group;
 
 use pollster::FutureExt;
 
@@ -80,31 +82,38 @@ async fn beginner(sc: &SystemContext, input: &Beginner) -> Beginner {
     let (bind_group_layout, bind_group) = example_create_bind_group(
         &sc.device,
         &input_buffer,
-        &[&a_output_buffer, &b_output_buffer]
+        &[&a_output_buffer, &b_output_buffer],
     );
 
-    let shader_module = sc.device.create_shader_module(wgpu::ShaderModuleDescriptor {
-        label: None,
-        source: wgpu::ShaderSource::Wgsl(
-            std::borrow::Cow::Borrowed(include_str!("beginner.wgsl"))
-        ),
-    });
+    let shader_module = sc
+        .device
+        .create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: None,
+            source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(include_str!(
+                "beginner.wgsl"
+            ))),
+        });
 
-    let pipeline_layout = sc.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-        label: None,
-        bind_group_layouts: &[&bind_group_layout],
-        push_constant_ranges: &[],
-    });
-    let compute_pipeline = sc.device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-        label: None,
-        layout: Some(&pipeline_layout),
-        module: &shader_module,
-        entry_point: "main",
-    });
+    let pipeline_layout = sc
+        .device
+        .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: None,
+            bind_group_layouts: &[&bind_group_layout],
+            push_constant_ranges: &[],
+        });
+    let compute_pipeline = sc
+        .device
+        .create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+            label: None,
+            layout: Some(&pipeline_layout),
+            module: &shader_module,
+            entry_point: "main",
+        });
 
     sc.queue.write_buffer(&input_buffer, 0, &input_bytes);
-    let mut command_encoder =
-        sc.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+    let mut command_encoder = sc
+        .device
+        .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
     {
         let mut compute_pass =
             command_encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: None });
@@ -114,37 +123,12 @@ async fn beginner(sc: &SystemContext, input: &Beginner) -> Beginner {
     }
     sc.queue.submit(Some(command_encoder.finish()));
 
-    let final_a = get_value_from_buffer(
-        &a_output_buffer,
+    Beginner::from_wgsl_buffers(
+        &[&a_output_buffer, &b_output_buffer],
         &output_staging_buffer,
         &sc.device,
         &sc.queue,
-        |view| {
-            let mut bytes = [0u8; 4];
-            bytes.copy_from_slice(&view);
-            i32::from_le_bytes(bytes)
-        }
-    ).await;
-    let final_b = get_value_from_buffer(
-        &b_output_buffer,
-        &output_staging_buffer,
-        &sc.device,
-        &sc.queue,
-        |view| {
-            let mut output = [0f32; 2];
-            let mut bytes = [0u8; 4];
-            bytes.copy_from_slice(&view[..4]);
-            output[0] = f32::from_le_bytes(bytes.clone());
-            bytes.copy_from_slice(&view[4..]);
-            output[1] = f32::from_le_bytes(bytes);
-            output
-        }
-    ).await;
-
-    Beginner {
-        a: final_a,
-        b: final_b,
-    }
+    )
 }
 
 async fn intermediate(sc: &SystemContext, input: &Intermediate) -> Intermediate {
@@ -154,14 +138,14 @@ async fn intermediate(sc: &SystemContext, input: &Intermediate) -> Intermediate 
         label: None,
         size: input_bytes.len() as u64,
         usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
-        mapped_at_creation: false
+        mapped_at_creation: false,
     });
     let mut member_buffers = Vec::<wgpu::Buffer>::with_capacity(3);
     // 4, 12, and 8 are our member sizes.
     for size in [4, 12, 8] {
         member_buffers.push(sc.device.create_buffer(&wgpu::BufferDescriptor {
             label: None,
-            size: size,
+            size,
             usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
             mapped_at_creation: false,
         }));
@@ -177,31 +161,38 @@ async fn intermediate(sc: &SystemContext, input: &Intermediate) -> Intermediate 
     let (bind_group_layout, bind_group) = example_create_bind_group(
         &sc.device,
         &input_buffer,
-        &member_buffers.iter().collect::<Vec<_>>()
+        &member_buffers.iter().collect::<Vec<_>>(),
     );
 
-    let shader_module = sc.device.create_shader_module(wgpu::ShaderModuleDescriptor {
-        label: None,
-        source: wgpu::ShaderSource::Wgsl(
-            std::borrow::Cow::Borrowed(include_str!("intermediate.wgsl"))
-        ),
-    });
+    let shader_module = sc
+        .device
+        .create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: None,
+            source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(include_str!(
+                "intermediate.wgsl"
+            ))),
+        });
 
-    let pipeline_layout = sc.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-        label: None,
-        bind_group_layouts: &[&bind_group_layout],
-        push_constant_ranges: &[],
-    });
-    let compute_pipeline = sc.device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-        label: None,
-        layout: Some(&pipeline_layout),
-        module: &shader_module,
-        entry_point: "main",
-    });
+    let pipeline_layout = sc
+        .device
+        .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: None,
+            bind_group_layouts: &[&bind_group_layout],
+            push_constant_ranges: &[],
+        });
+    let compute_pipeline = sc
+        .device
+        .create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+            label: None,
+            layout: Some(&pipeline_layout),
+            module: &shader_module,
+            entry_point: "main",
+        });
 
     sc.queue.write_buffer(&input_buffer, 0, &input_bytes);
-    let mut command_encoder =
-        sc.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+    let mut command_encoder = sc
+        .device
+        .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
     {
         let mut compute_pass =
             command_encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: None });
@@ -211,53 +202,15 @@ async fn intermediate(sc: &SystemContext, input: &Intermediate) -> Intermediate 
     }
     sc.queue.submit(Some(command_encoder.finish()));
 
-    let final_a = get_value_from_buffer(
-        &member_buffers[0],
+    Intermediate::from_wgsl_buffers(
+        member_buffers
+            .iter()
+            .collect::<Vec<&wgpu::Buffer>>()
+            .as_slice(),
         &output_staging_buffer,
         &sc.device,
         &sc.queue,
-        |view| {
-            let mut bytes = [0u8; 4];
-            bytes.copy_from_slice(&view);
-            i32::from_le_bytes(bytes)
-        }
-    ).await;
-    let final_b = get_value_from_buffer(
-        &member_buffers[1],
-        &output_staging_buffer,
-        &sc.device,
-        &sc.queue,
-        |view| {
-            let mut floats = [0f32; 3];
-            for i in 0..3 {
-                let mut bytes = [0u8; 4];
-                bytes.copy_from_slice(&view[(i * 4)..(i * 4 + 4)]);
-                floats[i] = f32::from_le_bytes(bytes);
-            }
-            floats
-        }
-    ).await;
-    let final_c = get_value_from_buffer(
-        &member_buffers[2],
-        &output_staging_buffer,
-        &sc.device,
-        &sc.queue,
-        |view| {
-            let mut ints = [0i32; 2];
-            for i in 0..2 {
-                let mut bytes = [0u8; 4];
-                bytes.copy_from_slice(&view[(i * 4)..(i * 4 + 4)]);
-                ints[i] = i32::from_le_bytes(bytes);
-            }
-            ints
-        }
-    ).await;
-
-    Intermediate {
-        a: final_a,
-        b: final_b,
-        c: final_c,
-    }
+    )
 }
 
 async fn advanced(sc: &SystemContext, input: &Advanced) -> Advanced {
@@ -325,28 +278,35 @@ async fn advanced(sc: &SystemContext, input: &Advanced) -> Advanced {
         ],
     );
 
-    let shader_module = sc.device.create_shader_module(wgpu::ShaderModuleDescriptor {
-        label: None,
-        source: wgpu::ShaderSource::Wgsl(
-            std::borrow::Cow::Borrowed(include_str!("advanced.wgsl"))
-        ),
-    });
+    let shader_module = sc
+        .device
+        .create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: None,
+            source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(include_str!(
+                "advanced.wgsl"
+            ))),
+        });
 
-    let pipeline_layout = sc.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-        label: None,
-        bind_group_layouts: &[&bind_group_layout],
-        push_constant_ranges: &[],
-    });
-    let compute_pipeline = sc.device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-        label: None,
-        layout: Some(&pipeline_layout),
-        module: &shader_module,
-        entry_point: "main",
-    });
+    let pipeline_layout = sc
+        .device
+        .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: None,
+            bind_group_layouts: &[&bind_group_layout],
+            push_constant_ranges: &[],
+        });
+    let compute_pipeline = sc
+        .device
+        .create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+            label: None,
+            layout: Some(&pipeline_layout),
+            module: &shader_module,
+            entry_point: "main",
+        });
 
     sc.queue.write_buffer(&input_buffer, 0, &input_bytes);
-    let mut command_encoder =
-        sc.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+    let mut command_encoder = sc
+        .device
+        .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
     {
         let mut compute_pass =
             command_encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: None });
@@ -356,102 +316,19 @@ async fn advanced(sc: &SystemContext, input: &Advanced) -> Advanced {
     }
     sc.queue.submit(Some(command_encoder.finish()));
 
-    let final_a = get_value_from_buffer(
-        &a_output_buffer,
+    Advanced::from_wgsl_buffers(
+        &[
+            &a_output_buffer,
+            &b_output_buffer,
+            &ca_output_buffer,
+            &cb_output_buffer,
+            &cc_output_buffer,
+            &d_output_buffer,
+        ],
         &output_staging_buffer,
         &sc.device,
         &sc.queue,
-        |view| {
-            let mut bytes = [0u8; 4];
-            bytes.copy_from_slice(&view);
-            u32::from_le_bytes(bytes)
-        }
-    ).await;
-    let final_b = get_value_from_buffer(
-        &b_output_buffer,
-        &output_staging_buffer,
-        &sc.device,
-        &sc.queue,
-        |view| {
-            let mut output = [0i32; 3];
-            for (i, v) in output.iter_mut().enumerate() {
-                let mut bytes = [0u8; 4];
-                bytes.copy_from_slice(&view[(i * 4)..(i * 4 + 4)]);
-                *v = i32::from_le_bytes(bytes);
-            }
-            output
-        }
-    ).await;
-    let final_ca = get_value_from_buffer(
-        &ca_output_buffer,
-        &output_staging_buffer,
-        &sc.device,
-        &sc.queue,
-        |view| {
-            let mut output = [0i32; 2];
-            for (i, v) in output.iter_mut().enumerate() {
-                let mut bytes = [0u8; 4];
-                bytes.copy_from_slice(&view[(i * 4)..(i * 4 + 4)]);
-                *v = i32::from_le_bytes(bytes);
-            }
-            output
-        }
-    ).await;
-    let final_cb = get_value_from_buffer(
-        &cb_output_buffer,
-        &output_staging_buffer,
-        &sc.device,
-        &sc.queue,
-        |view| {
-            let mut floats = [0f32; 8];
-            for (i, v) in floats.iter_mut().enumerate() {
-                let mut bytes = [0u8; 4];
-                bytes.copy_from_slice(&view[(i * 4)..(i * 4 + 4)]);
-                *v = f32::from_le_bytes(bytes);
-            }
-            let mut output = [[0f32; 2]; 4];
-            for (rn, row) in output.iter_mut().enumerate() {
-                let row_len = row.len();
-                for (vn, v) in row.iter_mut().enumerate() {
-                    *v = floats[rn * row_len + vn];
-                }
-            }
-            output
-        }
-    ).await;
-    let final_cc = get_value_from_buffer(
-        &cc_output_buffer,
-        &output_staging_buffer,
-        &sc.device,
-        &sc.queue,
-        |view| {
-            let mut bytes = [0u8; 4];
-            bytes.copy_from_slice(&view);
-            i32::from_le_bytes(bytes)
-        }
-    ).await;
-    let final_d = get_value_from_buffer(
-        &d_output_buffer,
-        &output_staging_buffer,
-        &sc.device,
-        &sc.queue,
-        |view| {
-            let mut bytes = [0u8; 4];
-            bytes.copy_from_slice(&view);
-            i32::from_le_bytes(bytes)
-        }
-    ).await;
-
-    Advanced {
-        a: final_a,
-        b: final_b,
-        c: AdvancedInner {
-            a: final_ca,
-            b: final_cb,
-            c: final_cc
-        },
-        d: final_d
-    }
+    )
 }
 
 fn main() {
