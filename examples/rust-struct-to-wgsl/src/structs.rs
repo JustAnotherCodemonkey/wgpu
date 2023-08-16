@@ -1,6 +1,11 @@
-// Try looking at the structs and guessing, yourself, what we will do to format it
-// into bytes for WGSL. The solutions with explanations are just below the structs
-// themselves.
+//! *After reading the readme*, Try looking at the structs and guessing, yourself,
+//! what we will do to format it into bytes for WGSL. The solutions with explanations
+//! are contained within the implementations of [`AsWgslBytes`] for each of the
+//! structs.
+//! 
+//! The implementations are meant to be gone through in order; [`Beginner`] does
+//! not use best practices for simplicity while [`InUniform`] leaves out a lot of
+//! basic concepts for brevity.
 
 use pollster::FutureExt;
 
@@ -321,6 +326,9 @@ impl AsWgslBytes for InUniformInner {
 }
 
 /// Utility for converting from a series of member buffers into an example struct.
+///
+/// The implementation of this is not important for the purposes of this example
+/// but feel free to look anyways.
 pub trait FromWgslBuffers {
     fn desired_buffer_sizes() -> Vec<u64>;
 
@@ -572,6 +580,8 @@ impl FromWgslBuffers for InUniform {
     }
 }
 
+/// Utility function for padding a byte vector's size to make any subsequent bytes
+/// pushed to it aligned to an `alignment` byte boundary.
 fn align_vec(v: &mut Vec<u8>, alignment: usize) {
     if v.len() % alignment != 0 {
         v.resize((v.len() / alignment + 1) * alignment, 0);
