@@ -2,7 +2,7 @@
 //! what we will do to format it into bytes for WGSL. The solutions with explanations
 //! are contained within the implementations of [`AsWgslBytes`] for each of the
 //! structs.
-//! 
+//!
 //! The implementations are meant to be gone through in order; [`Beginner`] does
 //! not use best practices for simplicity while [`InUniform`] leaves out a lot of
 //! basic concepts for brevity.
@@ -358,25 +358,25 @@ impl FromWgslBuffers for Beginner {
             staging_buffer,
         );
 
-        let a = i32::from_le_bytes(
-            <[u8; 4]>::try_from(
-                get_bytes_from_buffer(buffers[0], staging_buffer, device, queue)
+        Beginner {
+            a: i32::from_le_bytes(
+                <[u8; 4]>::try_from(
+                    get_bytes_from_buffer(buffers[0], staging_buffer, device, queue)
+                        .block_on()
+                        .as_slice(),
+                )
+                .unwrap(),
+            ),
+            b: <[f32; 2]>::try_from(
+                get_bytes_from_buffer(buffers[1], staging_buffer, device, queue)
                     .block_on()
+                    .chunks_exact(4)
+                    .map(|chunk| f32::from_le_bytes(<[u8; 4]>::try_from(chunk).unwrap()))
+                    .collect::<Vec<f32>>()
                     .as_slice(),
             )
             .unwrap(),
-        );
-        let b = <[f32; 2]>::try_from(
-            get_bytes_from_buffer(buffers[1], staging_buffer, device, queue)
-                .block_on()
-                .chunks_exact(4)
-                .map(|chunk| f32::from_le_bytes(<[u8; 4]>::try_from(chunk).unwrap()))
-                .collect::<Vec<f32>>()
-                .as_slice(),
-        )
-        .unwrap();
-
-        Beginner { a, b }
+        }
     }
 }
 
@@ -398,34 +398,34 @@ impl FromWgslBuffers for Intermediate {
             staging_buffer,
         );
 
-        let a = i32::from_le_bytes(
-            <[u8; 4]>::try_from(
-                get_bytes_from_buffer(buffers[0], staging_buffer, device, queue)
+        Intermediate {
+            a: i32::from_le_bytes(
+                <[u8; 4]>::try_from(
+                    get_bytes_from_buffer(buffers[0], staging_buffer, device, queue)
+                        .block_on()
+                        .as_slice(),
+                )
+                .unwrap(),
+            ),
+            b: <[f32; 3]>::try_from(
+                get_bytes_from_buffer(buffers[1], staging_buffer, device, queue)
                     .block_on()
+                    .chunks_exact(4)
+                    .map(|chunk| f32::from_le_bytes(<[u8; 4]>::try_from(chunk).unwrap()))
+                    .collect::<Vec<f32>>()
                     .as_slice(),
             )
             .unwrap(),
-        );
-        let b = <[f32; 3]>::try_from(
-            get_bytes_from_buffer(buffers[1], staging_buffer, device, queue)
-                .block_on()
-                .chunks_exact(4)
-                .map(|chunk| f32::from_le_bytes(<[u8; 4]>::try_from(chunk).unwrap()))
-                .collect::<Vec<f32>>()
-                .as_slice(),
-        )
-        .unwrap();
-        let c = <[i32; 2]>::try_from(
-            get_bytes_from_buffer(buffers[2], staging_buffer, device, queue)
-                .block_on()
-                .chunks_exact(4)
-                .map(|chunk| i32::from_le_bytes(<[u8; 4]>::try_from(chunk).unwrap()))
-                .collect::<Vec<i32>>()
-                .as_slice(),
-        )
-        .unwrap();
-
-        Intermediate { a, b, c }
+            c: <[i32; 2]>::try_from(
+                get_bytes_from_buffer(buffers[2], staging_buffer, device, queue)
+                    .block_on()
+                    .chunks_exact(4)
+                    .map(|chunk| i32::from_le_bytes(<[u8; 4]>::try_from(chunk).unwrap()))
+                    .collect::<Vec<i32>>()
+                    .as_slice(),
+            )
+            .unwrap(),
+        }
     }
 }
 
@@ -447,37 +447,37 @@ impl FromWgslBuffers for AdvancedInner {
             staging_buffer,
         );
 
-        let a = <[i32; 2]>::try_from(
-            get_bytes_from_buffer(buffers[0], staging_buffer, device, queue)
-                .block_on()
-                .chunks_exact(4)
-                .map(|chunk| i32::from_le_bytes(<[u8; 4]>::try_from(chunk).unwrap()))
-                .collect::<Vec<i32>>()
-                .as_slice(),
-        )
-        .unwrap();
-        let b = <[[f32; 2]; 4]>::try_from(
-            get_bytes_from_buffer(buffers[1], staging_buffer, device, queue)
-                .block_on()
-                .chunks_exact(4)
-                .map(|chunk| f32::from_le_bytes(<[u8; 4]>::try_from(chunk).unwrap()))
-                .collect::<Vec<f32>>()
-                .chunks_exact(2)
-                .map(|chunk| <[f32; 2]>::try_from(chunk).unwrap())
-                .collect::<Vec<[f32; 2]>>()
-                .as_slice(),
-        )
-        .unwrap();
-        let c = i32::from_le_bytes(
-            <[u8; 4]>::try_from(
-                get_bytes_from_buffer(buffers[2], staging_buffer, device, queue)
+        AdvancedInner {
+            a: <[i32; 2]>::try_from(
+                get_bytes_from_buffer(buffers[0], staging_buffer, device, queue)
                     .block_on()
+                    .chunks_exact(4)
+                    .map(|chunk| i32::from_le_bytes(<[u8; 4]>::try_from(chunk).unwrap()))
+                    .collect::<Vec<i32>>()
                     .as_slice(),
             )
             .unwrap(),
-        );
-
-        AdvancedInner { a, b, c }
+            b: <[[f32; 2]; 4]>::try_from(
+                get_bytes_from_buffer(buffers[1], staging_buffer, device, queue)
+                    .block_on()
+                    .chunks_exact(4)
+                    .map(|chunk| f32::from_le_bytes(<[u8; 4]>::try_from(chunk).unwrap()))
+                    .collect::<Vec<f32>>()
+                    .chunks_exact(2)
+                    .map(|chunk| <[f32; 2]>::try_from(chunk).unwrap())
+                    .collect::<Vec<[f32; 2]>>()
+                    .as_slice(),
+            )
+            .unwrap(),
+            c: i32::from_le_bytes(
+                <[u8; 4]>::try_from(
+                    get_bytes_from_buffer(buffers[2], staging_buffer, device, queue)
+                        .block_on()
+                        .as_slice(),
+                )
+                .unwrap(),
+            ),
+        }
     }
 }
 
@@ -500,31 +500,37 @@ impl FromWgslBuffers for Advanced {
             staging_buffer,
         );
 
-        let a = u32::from_le_bytes(
-            <[u8; 4]>::try_from(
-                get_bytes_from_buffer(member_buffers[0], staging_buffer, device, queue).block_on(),
+        Advanced {
+            a: u32::from_le_bytes(
+                <[u8; 4]>::try_from(
+                    get_bytes_from_buffer(member_buffers[0], staging_buffer, device, queue)
+                        .block_on(),
+                )
+                .unwrap(),
+            ),
+            b: <[i32; 3]>::try_from(
+                get_bytes_from_buffer(member_buffers[1], staging_buffer, device, queue)
+                    .block_on()
+                    .chunks_exact(4)
+                    .map(|chunk| i32::from_le_bytes(<[u8; 4]>::try_from(chunk).unwrap()))
+                    .collect::<Vec<i32>>()
+                    .as_slice(),
             )
             .unwrap(),
-        );
-        let b = <[i32; 3]>::try_from(
-            get_bytes_from_buffer(member_buffers[1], staging_buffer, device, queue)
-                .block_on()
-                .chunks_exact(4)
-                .map(|chunk| i32::from_le_bytes(<[u8; 4]>::try_from(chunk).unwrap()))
-                .collect::<Vec<i32>>()
-                .as_slice(),
-        )
-        .unwrap();
-        let c =
-            AdvancedInner::from_wgsl_buffers(&member_buffers[2..5], staging_buffer, device, queue);
-        let d = i32::from_le_bytes(
-            <[u8; 4]>::try_from(
-                get_bytes_from_buffer(member_buffers[5], staging_buffer, device, queue).block_on(),
-            )
-            .unwrap(),
-        );
-
-        Advanced { a, b, c, d }
+            c: AdvancedInner::from_wgsl_buffers(
+                &member_buffers[2..5],
+                staging_buffer,
+                device,
+                queue,
+            ),
+            d: i32::from_le_bytes(
+                <[u8; 4]>::try_from(
+                    get_bytes_from_buffer(member_buffers[5], staging_buffer, device, queue)
+                        .block_on(),
+                )
+                .unwrap(),
+            ),
+        }
     }
 }
 

@@ -381,7 +381,12 @@ async fn in_uniform(sc: &SystemContext, input: &InUniform) -> InUniform {
             ))),
         });
 
-    let output_buffers = [&aa_output_buffer, &ab_output_buffer, &b_output_buffer, &c_output_buffer];
+    let output_buffers = [
+        &aa_output_buffer,
+        &ab_output_buffer,
+        &b_output_buffer,
+        &c_output_buffer,
+    ];
     let mut layout_entires = Vec::<wgpu::BindGroupLayoutEntry>::with_capacity(5);
     layout_entires.push(wgpu::BindGroupLayoutEntry {
         binding: 0,
@@ -405,14 +410,16 @@ async fn in_uniform(sc: &SystemContext, input: &InUniform) -> InUniform {
             count: None,
         });
     }
-    let bind_group_layout = sc.device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-        label: None,
-        entries: &layout_entires,
-    });
+    let bind_group_layout = sc
+        .device
+        .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: None,
+            entries: &layout_entires,
+        });
     let mut bind_group_entries = Vec::<wgpu::BindGroupEntry>::with_capacity(5);
     bind_group_entries.push(wgpu::BindGroupEntry {
         binding: 0,
-        resource: input_buffer.as_entire_binding()
+        resource: input_buffer.as_entire_binding(),
     });
     for (i, b) in output_buffers.iter().enumerate() {
         bind_group_entries.push(wgpu::BindGroupEntry {
@@ -423,7 +430,7 @@ async fn in_uniform(sc: &SystemContext, input: &InUniform) -> InUniform {
     let bind_group = sc.device.create_bind_group(&wgpu::BindGroupDescriptor {
         label: None,
         layout: &bind_group_layout,
-        entries: &bind_group_entries
+        entries: &bind_group_entries,
     });
 
     let pipeline_layout = sc
