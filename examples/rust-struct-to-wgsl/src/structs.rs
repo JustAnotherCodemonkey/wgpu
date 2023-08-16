@@ -50,9 +50,24 @@ pub struct AdvancedInner {
 /// memory space.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InUniform {
+    /// Translates to InUniformInner.
+    pub a: InUniformInner,
+    /// Has align(16)
+    pub b: i32,
+    /// Translates to array<i32_wrapper, 2> where i32_wrapper is defined as
+    /// ```wgsl
+    /// struct i32_wrapper {
+    ///     @size(16)
+    ///     elem: i32,
+    /// }
+    /// Has align(16)
+    pub c: [i32; 2],
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct InUniformInner {
     pub a: i32,
-    /// Translates to array<i32, 2>
-    pub b: [i32; 2],
+    pub b: i32,
 }
 
 pub trait AsWgslBytes {
@@ -231,6 +246,75 @@ impl AsWgslBytes for AdvancedInner {
         // The main point of this inner structure (besides demonstrating the thing
         // with matrices,) is to show struct size padding in action.
         bytes.resize(bytes.len() + 4, 0);
+
+        bytes
+    }
+}
+
+impl AsWgslBytes for InUniform {
+    fn as_wgsl_bytes(&self) -> Vec<u8> {
+        let mut bytes = Vec::<u8>::new();
+
+        // a
+        // It's the start of the struct, what do you expect?
+        bytes.extend_from_slice(&self.a.as_wgsl_bytes());
+
+        // b
+        // This is where things get tricky. Although i32 has an align of 4,
+        // if you saw the shader code, you'd see that b is marked with an
+        // align attribute setting its align to 16. This is because of one
+        // of the rules about structure members in the uniform memory space:
+        // if one of the members is a structure, all subsequent members
+        // of that structure must have an alignment that is a multiple of 16.
+        // We had `a` and now we need to set the alignment of everything to
+        // 16.
+        //
+        // Lets use our trick from `Advanced`, which we've turned into
+        // a function.
+        align_vec(&mut bytes, 16);
+        bytes.extend_from_slice(&self.b.to_le_bytes());
+
+        // c
+        // c is tricky as an array. First, let's get the alignment out of
+        // the way. Just like `b`, `c` needs to have an alignment that is
+        // a multiple of 16 because it comes after a structure in the
+        // parent structure's member list but it also needs to have an
+        // alignment that is a multiple of 16 by virtue of being an array
+        // in the uniform memory space.
+        //
+        // There is also the issue of the array elements. Remember, in
+        // the uniform memory space, array elements must also be aligned
+        // at 16 byte boundaries.
+        align_vec(&mut bytes, 16);
+        for e in self.c.iter() {
+            bytes.extend_from_slice(&e.to_le_bytes());
+            // Here is where we pad the element out to the next 16 byte
+            // boundary, simulating the `@size(16)` we see in the shader
+            // code.
+            align_vec(&mut bytes, 16);
+        }
+
+        // Finally, struct padding. Largest element align was 16 so we
+        // pad to multiple of 16. We know because of the above code
+        // that it is already aligned but we are in the larger leagues
+        // now so we should practice safe code.
+        align_vec(&mut bytes, 16);
+
+        bytes
+    }
+}
+
+impl AsWgslBytes for InUniformInner {
+    fn as_wgsl_bytes(&self) -> Vec<u8> {
+        let mut bytes = Vec::<u8>::new();
+
+        // a
+        bytes.extend_from_slice(&self.a.to_le_bytes());
+
+        // b
+        // Note that we don't need to align to 16 here because none of the conditions
+        // where alignment to 16 is necessary apply.
+        bytes.extend_from_slice(&self.b.to_le_bytes());
 
         bytes
     }
@@ -423,7 +507,8 @@ impl FromWgslBuffers for Advanced {
                 .as_slice(),
         )
         .unwrap();
-        let c = AdvancedInner::from_wgsl_buffers(&member_buffers[2..5], staging_buffer, device, queue);
+        let c =
+            AdvancedInner::from_wgsl_buffers(&member_buffers[2..5], staging_buffer, device, queue);
         let d = i32::from_le_bytes(
             <[u8; 4]>::try_from(
                 get_bytes_from_buffer(member_buffers[5], staging_buffer, device, queue).block_on(),
@@ -432,5 +517,63 @@ impl FromWgslBuffers for Advanced {
         );
 
         Advanced { a, b, c, d }
+    }
+}
+
+impl FromWgslBuffers for InUniform {
+    fn desired_buffer_sizes() -> Vec<u64> {
+        vec![4, 4, 4, 8]
+    }
+
+    fn from_wgsl_buffers(
+        buffers: &[&wgpu::Buffer],
+        staging_buffer: &wgpu::Buffer,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+    ) -> Self {
+        #[cfg(debug_assertions)]
+        validate_buffers_for_from_wgsl_bytes::<InUniform>(
+            buffers,
+            &InUniform::desired_buffer_sizes(),
+            staging_buffer,
+        );
+
+        InUniform {
+            a: InUniformInner {
+                a: i32::from_le_bytes(
+                    <[u8; 4]>::try_from(
+                        get_bytes_from_buffer(buffers[0], staging_buffer, device, queue).block_on(),
+                    )
+                    .unwrap(),
+                ),
+                b: i32::from_le_bytes(
+                    <[u8; 4]>::try_from(
+                        get_bytes_from_buffer(buffers[1], staging_buffer, device, queue).block_on(),
+                    )
+                    .unwrap(),
+                ),
+            },
+            b: i32::from_le_bytes(
+                <[u8; 4]>::try_from(
+                    get_bytes_from_buffer(buffers[2], staging_buffer, device, queue).block_on(),
+                )
+                .unwrap(),
+            ),
+            c: <[i32; 2]>::try_from(
+                get_bytes_from_buffer(buffers[3], staging_buffer, device, queue)
+                    .block_on()
+                    .chunks_exact(4)
+                    .map(|chunk| i32::from_le_bytes(<[u8; 4]>::try_from(chunk).unwrap()))
+                    .collect::<Vec<i32>>()
+                    .as_slice(),
+            )
+            .unwrap(),
+        }
+    }
+}
+
+fn align_vec(v: &mut Vec<u8>, alignment: usize) {
+    if v.len() % alignment != 0 {
+        v.resize((v.len() / alignment + 1) * alignment, 0);
     }
 }

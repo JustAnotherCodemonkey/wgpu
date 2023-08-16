@@ -4,7 +4,8 @@ mod tests;
 mod utils;
 
 use structs::{
-    Advanced, AdvancedInner, AsWgslBytes, Beginner, FromWgslBuffers, InUniform, Intermediate,
+    Advanced, AdvancedInner, AsWgslBytes, Beginner, FromWgslBuffers, InUniform, InUniformInner,
+    Intermediate,
 };
 use utils::example_create_bind_group;
 
@@ -331,6 +332,150 @@ async fn advanced(sc: &SystemContext, input: &Advanced) -> Advanced {
     )
 }
 
+async fn in_uniform(sc: &SystemContext, input: &InUniform) -> InUniform {
+    let input_bytes = input.as_wgsl_bytes();
+
+    let input_buffer = sc.device.create_buffer(&wgpu::BufferDescriptor {
+        label: None,
+        size: input_bytes.len() as u64,
+        usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        mapped_at_creation: false,
+    });
+    let aa_output_buffer = sc.device.create_buffer(&wgpu::BufferDescriptor {
+        label: None,
+        size: 4,
+        usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
+        mapped_at_creation: false,
+    });
+    let ab_output_buffer = sc.device.create_buffer(&wgpu::BufferDescriptor {
+        label: None,
+        size: 4,
+        usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
+        mapped_at_creation: false,
+    });
+    let b_output_buffer = sc.device.create_buffer(&wgpu::BufferDescriptor {
+        label: None,
+        size: 4,
+        usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
+        mapped_at_creation: false,
+    });
+    let c_output_buffer = sc.device.create_buffer(&wgpu::BufferDescriptor {
+        label: None,
+        size: 8,
+        usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
+        mapped_at_creation: false,
+    });
+    let output_staging_buffer = sc.device.create_buffer(&wgpu::BufferDescriptor {
+        label: None,
+        size: 8,
+        usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
+        mapped_at_creation: false,
+    });
+
+    let shader_module = sc
+        .device
+        .create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: None,
+            source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(include_str!(
+                "in-uniform.wgsl"
+            ))),
+        });
+
+    let output_buffers = [&aa_output_buffer, &ab_output_buffer, &b_output_buffer, &c_output_buffer];
+    let mut layout_entires = Vec::<wgpu::BindGroupLayoutEntry>::with_capacity(5);
+    layout_entires.push(wgpu::BindGroupLayoutEntry {
+        binding: 0,
+        visibility: wgpu::ShaderStages::COMPUTE,
+        ty: wgpu::BindingType::Buffer {
+            ty: wgpu::BufferBindingType::Uniform,
+            has_dynamic_offset: false,
+            min_binding_size: Some(std::num::NonZeroU64::new(input_buffer.size()).unwrap()),
+        },
+        count: None,
+    });
+    for (i, b) in output_buffers.iter().enumerate() {
+        layout_entires.push(wgpu::BindGroupLayoutEntry {
+            binding: i as u32 + 1,
+            visibility: wgpu::ShaderStages::COMPUTE,
+            ty: wgpu::BindingType::Buffer {
+                ty: wgpu::BufferBindingType::Storage { read_only: false },
+                has_dynamic_offset: false,
+                min_binding_size: Some(std::num::NonZeroU64::new(b.size()).unwrap()),
+            },
+            count: None,
+        });
+    }
+    let bind_group_layout = sc.device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+        label: None,
+        entries: &layout_entires,
+    });
+    let mut bind_group_entries = Vec::<wgpu::BindGroupEntry>::with_capacity(5);
+    bind_group_entries.push(wgpu::BindGroupEntry {
+        binding: 0,
+        resource: input_buffer.as_entire_binding()
+    });
+    for (i, b) in output_buffers.iter().enumerate() {
+        bind_group_entries.push(wgpu::BindGroupEntry {
+            binding: i as u32 + 1,
+            resource: b.as_entire_binding(),
+        });
+    }
+    let bind_group = sc.device.create_bind_group(&wgpu::BindGroupDescriptor {
+        label: None,
+        layout: &bind_group_layout,
+        entries: &bind_group_entries
+    });
+
+    let pipeline_layout = sc
+        .device
+        .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: None,
+            bind_group_layouts: &[&bind_group_layout],
+            push_constant_ranges: &[],
+        });
+    let compute_pipeline = sc
+        .device
+        .create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+            label: None,
+            layout: Some(&pipeline_layout),
+            module: &shader_module,
+            entry_point: "main",
+        });
+
+    sc.queue.write_buffer(&input_buffer, 0, &input_bytes);
+    let mut command_encoder = sc
+        .device
+        .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+    {
+        let mut compute_pass =
+            command_encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: None });
+        compute_pass.set_pipeline(&compute_pipeline);
+        compute_pass.set_bind_group(0, &bind_group, &[]);
+        compute_pass.dispatch_workgroups(1, 1, 1);
+    }
+    sc.queue.submit(Some(command_encoder.finish()));
+
+    InUniform::from_wgsl_buffers(
+        &[
+            &aa_output_buffer,
+            &ab_output_buffer,
+            &b_output_buffer,
+            &c_output_buffer,
+        ],
+        &output_staging_buffer,
+        &sc.device,
+        &sc.queue,
+    )
+}
+
 fn main() {
-    println!("Hello, world!");
+    let sc = SystemContext::new().block_on();
+    let shader_module = sc
+        .device
+        .create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: None,
+            source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(include_str!(
+                "in-uniform.wgsl"
+            ))),
+        });
 }

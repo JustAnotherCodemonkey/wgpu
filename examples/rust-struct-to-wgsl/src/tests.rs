@@ -1,7 +1,7 @@
 use super::{
-    advanced, beginner, example_create_bind_group, intermediate,
+    advanced, beginner, example_create_bind_group, in_uniform, intermediate,
     structs::{AdvancedInner, AsWgslBytes, FromWgslBuffers},
-    Advanced, Beginner, Intermediate, SystemContext,
+    Advanced, Beginner, InUniform, InUniformInner, Intermediate, SystemContext,
 };
 
 use pollster::FutureExt;
@@ -184,4 +184,27 @@ fn rust_struct_to_wgsl_test_advanced() {
         },
         &sc,
     );
+}
+
+#[test]
+fn rust_struct_to_wgsl_test_in_uniform() {
+    fn t(input: InUniform, desired: InUniform, sc: &SystemContext) {
+        assert_eq!(in_uniform(sc, &input).block_on(), desired);
+    }
+
+    let sc = SystemContext::new().block_on();
+
+    t(
+        InUniform {
+            a: InUniformInner { a: 0, b: 0 },
+            b: 0,
+            c: [0; 2],
+        },
+        InUniform {
+            a: InUniformInner { a: 1, b: 1 },
+            b: 1,
+            c: [1; 2],
+        },
+        &sc,
+    )
 }
