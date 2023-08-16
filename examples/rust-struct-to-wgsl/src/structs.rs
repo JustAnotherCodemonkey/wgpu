@@ -82,7 +82,7 @@ impl AsWgslBytes for Beginner {
         let mut bytes = Vec::<u8>::new();
 
         // a
-        // a is pretty easy. As an i32, it has a size of 4 and an align of
+        // `a` is pretty easy. As an i32, it has a size of 4 and an align of
         // 4 as well. Since this is the start of the structure, we don't
         // need to do any aligning.
         //
@@ -91,17 +91,17 @@ impl AsWgslBytes for Beginner {
         bytes.extend_from_slice(&self.a.to_le_bytes());
 
         // b
-        // b is where things get a little tricky. b has a size of 8 and
+        // `b` is where things get a little tricky. `b` has a size of 8 and
         // an align of 8. Remember that we are at offset 4 so placing
-        // b right now would be out of alignment. We need to introduce padding
-        // first in order to put b at a multiple of 8. Since we're at 4, we
+        // `b` right now would be out of alignment. We need to introduce padding
+        // first in order to put `b` at a multiple of 8. Since we're at 4, we
         // need 4 more bytes. Let's add those now.
         bytes.resize(bytes.len() + 4, 0);
         // Now we can add the bytes of b.
         bytes.extend(self.b.iter().flat_map(|v| v.to_le_bytes()));
 
         // And our struct is now sized at a multiple of it's alignment
-        // (8 because its largest member, b, has an alignment of 8).
+        // (8 because its largest member, `b`, has an alignment of 8).
         // We can now return our formatted struct bytes.
         bytes
     }
@@ -117,18 +117,18 @@ impl AsWgslBytes for Intermediate {
         bytes.extend_from_slice(&self.a.to_le_bytes());
 
         // b
-        // b has an alignment of 16 (size of 12, rounded to nearest
+        // `b` has an alignment of 16 (size of 12, rounded to nearest
         // power of 2) but we're at offset 4 so we need to pad
-        // to the next multiple of 16 to align for b. That multiple
+        // to the next multiple of 16 to align for `b`. That multiple
         // happens to be 16 so let's pad to there.
         bytes.resize(16, 0);
-        // Now, push the actual bytes of b
+        // Now, push the actual bytes of `b`
         for v in self.b.iter() {
             bytes.extend_from_slice(&v.to_le_bytes());
         }
 
         // c
-        // Now, c has an alignment of 8 but because b was only 12 bytes long,
+        // Now, `c` has an alignment of 8 but because `b` was only 12 bytes long,
         // we're currently at byte 28, which is not a multiple of 8. 4 more
         // bytes and we'll be there but here's a neat trick to get the next
         // multiple of a number:
@@ -137,7 +137,7 @@ impl AsWgslBytes for Intermediate {
         // you ahead at least by a multiple so optimally you would want to
         // check first if a bump is necessary.
         bytes.resize(new_desired_len, 0);
-        // Now we can add c. Let's do it differently for fun.
+        // Now we can add `c`. Let's do it differently for fun.
         bytes.extend_from_slice(&self.c[0].to_le_bytes());
         bytes.extend_from_slice(&self.c[1].to_le_bytes());
 
@@ -165,29 +165,29 @@ impl AsWgslBytes for Advanced {
         bytes.extend_from_slice(&self.a.to_le_bytes());
 
         // b
-        // You may instinctively think at this point that we need to align b
+        // You may instinctively think at this point that we need to align `b`
         // but here, it's actually already aligned. The arrays we were working
-        // with before were translated into vec's but b will be an array.
+        // with before were translated into vec's but `b` will be an array.
         // While vec's are aligned as one unit, arrays have the align of their
-        // element type. b's alignment is 4 just like a so it can start right
+        // element type. `b`'s alignment is 4 just like a so it can start right
         // after it.
         for v in self.b.iter() {
             bytes.extend_from_slice(&v.to_le_bytes());
         }
 
         // c
-        // c is where things get interesting. First, let's make sure we're aligned
+        // `c` is where things get interesting. First, let's make sure we're aligned
         // (we are but our trick works anyways).
         if bytes.len() % 8 != 0 {
             bytes.resize((bytes.len() / 8 + 1) * 8, 0);
         }
-        // Because AdvancedInner's a and b
+        // Because AdvancedInner's `a` and `b`
         // are going to come next in memory logically, let's jump over to
         // AdvancedInner's impl of AsWgslBytes.
         bytes.extend_from_slice(&self.c.as_wgsl_bytes());
 
         // d
-        // Finally, d. We're aligned but assuming alignment is so for beginners.
+        // Finally, `d`. We're aligned but assuming alignment is so for beginners.
         // This is Rust and we are big kids and big kids write safe code.
         // Well, big kids also write functions for code they reuse but...
         if bytes.len() % 4 != 0 {
@@ -217,14 +217,14 @@ impl AsWgslBytes for AdvancedInner {
         }
 
         // b
-        // Now b is where things get super interesting. You once again might
+        // Now `b` is where things get super interesting. You once again might
         // be tempted to start calculating alignment but here, there is actually
         // no need. If you took a look at the chart on the wgsl spec, you would
         // see that matrices have the alignment of their rows. The spec even
         // alludes to the idea that matrices are stored as array<vecR<T>, C>.
         //
-        // Considering this, we'll check the alignment. a had an alignment of 8
-        // and since b's row alignment is also 8, no padding is necessary.
+        // Considering this, we'll check the alignment. `a` had an alignment of 8
+        // and since `b`'s row alignment is also 8, no padding is necessary.
         //
         // Nothing fancy here, just dump the bytes.
         for row in self.b.iter() {
@@ -234,12 +234,12 @@ impl AsWgslBytes for AdvancedInner {
         }
 
         // c
-        // c, as we'll see, throws a very small wrench into things.
+        // `c`, as we'll see, throws a very small wrench into things.
         bytes.extend_from_slice(&self.c.to_le_bytes());
 
-        // Now, before c, we had an item with a size of 32 slot perfectly with
+        // Now, before `c`, we had an item with a size of 32 slot perfectly with
         // an item with a size of 8, making a total size of 40. And with an
-        // alignment of 8, this struct could have been done. However, with c in
+        // alignment of 8, this struct could have been done. However, with `c` in
         // the mix, adding 4 means the structure's size is no longer a multiple
         // of its alignment, 8. We need to pad 4 bytes to bring its size up to 48.
         //
@@ -261,7 +261,7 @@ impl AsWgslBytes for InUniform {
 
         // b
         // This is where things get tricky. Although i32 has an align of 4,
-        // if you saw the shader code, you'd see that b is marked with an
+        // if you saw the shader code, you'd see that `b` is marked with an
         // align attribute setting its align to 16. This is because of one
         // of the rules about structure members in the uniform memory space:
         // if one of the members is a structure, all subsequent members
