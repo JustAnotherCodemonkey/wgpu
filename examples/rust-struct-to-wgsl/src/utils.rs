@@ -1,3 +1,24 @@
+pub fn compute(
+    input_buffer: &wgpu::Buffer,
+    input_bytes: &[u8],
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
+    compute_pipeline: &wgpu::ComputePipeline,
+    bind_group: &wgpu::BindGroup,
+) {
+    queue.write_buffer(input_buffer, 0, input_bytes);
+    let mut command_encoder =
+        device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+    {
+        let mut compute_pass =
+            command_encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: None });
+        compute_pass.set_pipeline(compute_pipeline);
+        compute_pass.set_bind_group(0, bind_group, &[]);
+        compute_pass.dispatch_workgroups(1, 1, 1);
+    }
+    queue.submit(Some(command_encoder.finish()));
+}
+
 pub fn create_input_buffer(device: &wgpu::Device, size: u64, is_in_uniform: bool) -> wgpu::Buffer {
     let memory_space_usage = if is_in_uniform {
         wgpu::BufferUsages::UNIFORM

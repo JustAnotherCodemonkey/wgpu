@@ -1,5 +1,5 @@
 use crate::utils::{
-    create_input_buffer, create_output_buffers, create_pipeline, create_staging_buffer,
+    compute, create_input_buffer, create_output_buffers, create_pipeline, create_staging_buffer,
 };
 
 use super::{
@@ -42,18 +42,14 @@ async fn advanced_inner(sc: &SystemContext, input: &AdvancedInner) -> AdvancedIn
 
     let compute_pipeline = create_pipeline(&sc.device, &bind_group_layout, &shader_module);
 
-    sc.queue.write_buffer(&input_buffer, 0, &input_bytes);
-    let mut command_encoder = sc
-        .device
-        .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
-    {
-        let mut compute_pass =
-            command_encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: None });
-        compute_pass.set_pipeline(&compute_pipeline);
-        compute_pass.set_bind_group(0, &bind_group, &[]);
-        compute_pass.dispatch_workgroups(1, 1, 1);
-    }
-    sc.queue.submit(Some(command_encoder.finish()));
+    compute(
+        &input_buffer,
+        &input_bytes,
+        &sc.device,
+        &sc.queue,
+        &compute_pipeline,
+        &bind_group,
+    );
 
     AdvancedInner::from_wgsl_buffers(
         &output_buffers.iter().collect::<Vec<&_>>(),
