@@ -1,5 +1,5 @@
 use super::{
-    advanced, beginner, example_create_bind_group, in_uniform, intermediate,
+    advanced, beginner, create_bind_group, in_uniform, intermediate,
     structs::{AdvancedInner, AsWgslBytes, FromWgslBuffers},
     Advanced, Beginner, InUniform, InUniformInner, Intermediate, SystemContext,
 };
@@ -40,10 +40,11 @@ async fn advanced_inner(sc: &SystemContext, input: &AdvancedInner) -> AdvancedIn
         mapped_at_creation: false,
     });
 
-    let (bind_group_layout, bind_group) = example_create_bind_group(
+    let (bind_group_layout, bind_group) = create_bind_group(
         &sc.device,
         &input_buffer,
         &[&a_output_buffer, &b_output_buffer, &c_output_buffer],
+        false,
     );
 
     let shader_module = sc

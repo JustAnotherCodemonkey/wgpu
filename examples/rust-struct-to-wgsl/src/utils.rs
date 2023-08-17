@@ -37,18 +37,25 @@ pub fn create_staging_buffer(device: &wgpu::Device, largest_member_size: u64) ->
     })
 }
 
-pub fn example_create_bind_group(
+pub fn create_bind_group(
     device: &wgpu::Device,
     input_struct_buffer: &wgpu::Buffer,
     member_buffers: &[&wgpu::Buffer],
+    input_is_uniform: bool,
 ) -> (wgpu::BindGroupLayout, wgpu::BindGroup) {
     let mut layout_entries =
         Vec::<wgpu::BindGroupLayoutEntry>::with_capacity(member_buffers.len() + 1);
+    // Input buffer
+    let input_buffer_binding_type = if input_is_uniform {
+        wgpu::BufferBindingType::Uniform
+    } else {
+        wgpu::BufferBindingType::Storage { read_only: true }
+    };
     layout_entries.push(wgpu::BindGroupLayoutEntry {
         binding: 0,
         visibility: wgpu::ShaderStages::COMPUTE,
         ty: wgpu::BindingType::Buffer {
-            ty: wgpu::BufferBindingType::Storage { read_only: true },
+            ty: input_buffer_binding_type,
             has_dynamic_offset: false,
             min_binding_size: Some(std::num::NonZeroU64::new(input_struct_buffer.size()).unwrap()),
         },

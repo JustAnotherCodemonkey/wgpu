@@ -7,7 +7,7 @@ use structs::{
     Advanced, AdvancedInner, AsWgslBytes, Beginner, FromWgslBuffers, InUniform, InUniformInner,
     Intermediate,
 };
-use utils::{create_input_buffer, create_output_buffers, create_staging_buffer, example_create_bind_group};
+use utils::{create_bind_group, create_input_buffer, create_output_buffers, create_staging_buffer};
 
 use pollster::FutureExt;
 
@@ -59,17 +59,17 @@ async fn beginner(sc: &SystemContext, input: &Beginner) -> Beginner {
         &sc.device,
         &[
             // a
-            4,
-            // b
+            4, // b
             8,
-        ]
+        ],
     );
     let output_staging_buffer = create_staging_buffer(&sc.device, 8);
 
-    let (bind_group_layout, bind_group) = example_create_bind_group(
+    let (bind_group_layout, bind_group) = create_bind_group(
         &sc.device,
         &input_buffer,
         &output_buffers.iter().collect::<Vec<&_>>(),
+        false,
     );
 
     let shader_module = sc
@@ -126,19 +126,18 @@ async fn intermediate(sc: &SystemContext, input: &Intermediate) -> Intermediate 
         &sc.device,
         &[
             // a
-            4,
-            // b
-            12,
-            // c
+            4, // b
+            12, // c
             8,
-        ]
+        ],
     );
     let output_staging_buffer = create_staging_buffer(&sc.device, 12);
 
-    let (bind_group_layout, bind_group) = example_create_bind_group(
+    let (bind_group_layout, bind_group) = create_bind_group(
         &sc.device,
         &input_buffer,
         &output_buffers.iter().collect::<Vec<_>>(),
+        false,
     );
 
     let shader_module = sc
@@ -198,25 +197,21 @@ async fn advanced(sc: &SystemContext, input: &Advanced) -> Advanced {
         &sc.device,
         &[
             // a
+            4, // b
+            12, // c.a
+            8, // c.b
+            32, // c.c
+            4, // d
             4,
-            // b
-            12,
-            // c.a
-            8,
-            // c.b
-            32,
-            // c.c
-            4,
-            // d
-            4,
-        ]
+        ],
     );
     let output_staging_buffer = create_staging_buffer(&sc.device, 32);
 
-    let (bind_group_layout, bind_group) = example_create_bind_group(
+    let (bind_group_layout, bind_group) = create_bind_group(
         &sc.device,
         &input_buffer,
         &output_buffers.iter().collect::<Vec<&_>>(),
+        false,
     );
 
     let shader_module = sc
@@ -273,14 +268,11 @@ async fn in_uniform(sc: &SystemContext, input: &InUniform) -> InUniform {
         &sc.device,
         &[
             // aa
-            4,
-            // ab
-            4,
-            // b
-            4,
-            // c
+            4, // ab
+            4, // b
+            4, // c
             8,
-        ]
+        ],
     );
     let output_staging_buffer = create_staging_buffer(&sc.device, 8);
 
@@ -293,53 +285,12 @@ async fn in_uniform(sc: &SystemContext, input: &InUniform) -> InUniform {
             ))),
         });
 
-    // We currently need to specify this explicitly since the create bind group does not
-    // *currently* support the input being a uniform.
-    let mut layout_entires = Vec::<wgpu::BindGroupLayoutEntry>::with_capacity(5);
-    layout_entires.push(wgpu::BindGroupLayoutEntry {
-        binding: 0,
-        visibility: wgpu::ShaderStages::COMPUTE,
-        ty: wgpu::BindingType::Buffer {
-            ty: wgpu::BufferBindingType::Uniform,
-            has_dynamic_offset: false,
-            min_binding_size: Some(std::num::NonZeroU64::new(input_buffer.size()).unwrap()),
-        },
-        count: None,
-    });
-    for (i, b) in output_buffers.iter().enumerate() {
-        layout_entires.push(wgpu::BindGroupLayoutEntry {
-            binding: i as u32 + 1,
-            visibility: wgpu::ShaderStages::COMPUTE,
-            ty: wgpu::BindingType::Buffer {
-                ty: wgpu::BufferBindingType::Storage { read_only: false },
-                has_dynamic_offset: false,
-                min_binding_size: Some(std::num::NonZeroU64::new(b.size()).unwrap()),
-            },
-            count: None,
-        });
-    }
-    let bind_group_layout = sc
-        .device
-        .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: None,
-            entries: &layout_entires,
-        });
-    let mut bind_group_entries = Vec::<wgpu::BindGroupEntry>::with_capacity(5);
-    bind_group_entries.push(wgpu::BindGroupEntry {
-        binding: 0,
-        resource: input_buffer.as_entire_binding(),
-    });
-    for (i, b) in output_buffers.iter().enumerate() {
-        bind_group_entries.push(wgpu::BindGroupEntry {
-            binding: i as u32 + 1,
-            resource: b.as_entire_binding(),
-        });
-    }
-    let bind_group = sc.device.create_bind_group(&wgpu::BindGroupDescriptor {
-        label: None,
-        layout: &bind_group_layout,
-        entries: &bind_group_entries,
-    });
+    let (bind_group_layout, bind_group) = create_bind_group(
+        &sc.device,
+        &input_buffer,
+        &output_buffers.iter().collect::<Vec<&_>>(),
+        true,
+    );
 
     let pipeline_layout = sc
         .device
