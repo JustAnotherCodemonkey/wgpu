@@ -58,9 +58,8 @@ async fn beginner(sc: &SystemContext, input: &Beginner) -> Beginner {
     let output_buffers = create_output_buffers(
         &sc.device,
         &[
-            // a
-            4, // b
-            8,
+            4, // a
+            8, // b
         ],
     );
     let output_staging_buffer = create_staging_buffer(&sc.device, 8);
@@ -125,10 +124,9 @@ async fn intermediate(sc: &SystemContext, input: &Intermediate) -> Intermediate 
     let output_buffers = create_output_buffers(
         &sc.device,
         &[
-            // a
-            4,  // b
-            12, // c
-            8,
+            4,  // a
+            12, // b
+            8, // c
         ],
     );
     let output_staging_buffer = create_staging_buffer(&sc.device, 12);
@@ -196,13 +194,12 @@ async fn advanced(sc: &SystemContext, input: &Advanced) -> Advanced {
     let output_buffers = create_output_buffers(
         &sc.device,
         &[
-            // a
-            4,  // b
-            12, // c.a
-            8,  // c.b
-            32, // c.c
-            4,  // d
-            4,
+            4,  // a
+            12, // b
+            8,  // c.a
+            32, // c.b
+            4,  // c.c
+            4, // d
         ],
     );
     let output_staging_buffer = create_staging_buffer(&sc.device, 32);
@@ -267,11 +264,10 @@ async fn in_uniform(sc: &SystemContext, input: &InUniform) -> InUniform {
     let output_buffers = create_output_buffers(
         &sc.device,
         &[
-            // aa
+            4, // aa
             4, // ab
             4, // b
-            4, // c
-            8,
+            8, // c
         ],
     );
     let output_staging_buffer = create_staging_buffer(&sc.device, 8);

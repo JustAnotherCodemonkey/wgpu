@@ -15,10 +15,9 @@ async fn advanced_inner(sc: &SystemContext, input: &AdvancedInner) -> AdvancedIn
     let output_buffers = create_output_buffers(
         &sc.device,
         &[
-            // a
-            8, // b
-            32, // c
-            4,
+            8, // a
+            32, // b
+            4, // c
         ],
     );
     let output_staging_buffer = create_staging_buffer(&sc.device, 32);
