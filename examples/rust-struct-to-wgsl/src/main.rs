@@ -126,7 +126,7 @@ async fn intermediate(sc: &SystemContext, input: &Intermediate) -> Intermediate 
         &sc.device,
         &[
             // a
-            4, // b
+            4,  // b
             12, // c
             8,
         ],
@@ -197,11 +197,11 @@ async fn advanced(sc: &SystemContext, input: &Advanced) -> Advanced {
         &sc.device,
         &[
             // a
-            4, // b
+            4,  // b
             12, // c.a
-            8, // c.b
+            8,  // c.b
             32, // c.c
-            4, // d
+            4,  // d
             4,
         ],
     );

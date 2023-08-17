@@ -1,3 +1,5 @@
+use crate::utils::{create_input_buffer, create_output_buffers, create_staging_buffer};
+
 use super::{
     advanced, beginner, create_bind_group, in_uniform, intermediate,
     structs::{AdvancedInner, AsWgslBytes, FromWgslBuffers},
@@ -9,41 +11,22 @@ use pollster::FutureExt;
 async fn advanced_inner(sc: &SystemContext, input: &AdvancedInner) -> AdvancedInner {
     let input_bytes = input.as_wgsl_bytes();
 
-    let input_buffer = sc.device.create_buffer(&wgpu::BufferDescriptor {
-        label: None,
-        size: input_bytes.len() as u64,
-        usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
-        mapped_at_creation: false,
-    });
-    let a_output_buffer = sc.device.create_buffer(&wgpu::BufferDescriptor {
-        label: None,
-        size: 8,
-        usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
-        mapped_at_creation: false,
-    });
-    let b_output_buffer = sc.device.create_buffer(&wgpu::BufferDescriptor {
-        label: None,
-        size: 32,
-        usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
-        mapped_at_creation: false,
-    });
-    let c_output_buffer = sc.device.create_buffer(&wgpu::BufferDescriptor {
-        label: None,
-        size: 4,
-        usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
-        mapped_at_creation: false,
-    });
-    let output_staging_buffer = sc.device.create_buffer(&wgpu::BufferDescriptor {
-        label: None,
-        size: 32,
-        usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
-        mapped_at_creation: false,
-    });
+    let input_buffer = create_input_buffer(&sc.device, input_bytes.len() as u64, false);
+    let output_buffers = create_output_buffers(
+        &sc.device,
+        &[
+            // a
+            8, // b
+            32, // c
+            4,
+        ],
+    );
+    let output_staging_buffer = create_staging_buffer(&sc.device, 32);
 
     let (bind_group_layout, bind_group) = create_bind_group(
         &sc.device,
         &input_buffer,
-        &[&a_output_buffer, &b_output_buffer, &c_output_buffer],
+        &output_buffers.iter().collect::<Vec<&_>>(),
         false,
     );
 
@@ -86,7 +69,7 @@ async fn advanced_inner(sc: &SystemContext, input: &AdvancedInner) -> AdvancedIn
     sc.queue.submit(Some(command_encoder.finish()));
 
     AdvancedInner::from_wgsl_buffers(
-        &[&a_output_buffer, &b_output_buffer, &c_output_buffer],
+        &output_buffers.iter().collect::<Vec<&_>>(),
         &output_staging_buffer,
         &sc.device,
         &sc.queue,
