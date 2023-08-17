@@ -7,7 +7,10 @@ use structs::{
     Advanced, AdvancedInner, AsWgslBytes, Beginner, FromWgslBuffers, InUniform, InUniformInner,
     Intermediate,
 };
-use utils::{create_bind_group, create_input_buffer, create_output_buffers, create_staging_buffer};
+use utils::{
+    create_bind_group, create_input_buffer, create_output_buffers, create_pipeline,
+    create_staging_buffer,
+};
 
 use pollster::FutureExt;
 
@@ -80,21 +83,7 @@ async fn beginner(sc: &SystemContext, input: &Beginner) -> Beginner {
             ))),
         });
 
-    let pipeline_layout = sc
-        .device
-        .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: None,
-            bind_group_layouts: &[&bind_group_layout],
-            push_constant_ranges: &[],
-        });
-    let compute_pipeline = sc
-        .device
-        .create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-            label: None,
-            layout: Some(&pipeline_layout),
-            module: &shader_module,
-            entry_point: "main",
-        });
+    let compute_pipeline = create_pipeline(&sc.device, &bind_group_layout, &shader_module);
 
     sc.queue.write_buffer(&input_buffer, 0, &input_bytes);
     let mut command_encoder = sc
@@ -126,7 +115,7 @@ async fn intermediate(sc: &SystemContext, input: &Intermediate) -> Intermediate 
         &[
             4,  // a
             12, // b
-            8, // c
+            8,  // c
         ],
     );
     let output_staging_buffer = create_staging_buffer(&sc.device, 12);
@@ -147,21 +136,7 @@ async fn intermediate(sc: &SystemContext, input: &Intermediate) -> Intermediate 
             ))),
         });
 
-    let pipeline_layout = sc
-        .device
-        .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: None,
-            bind_group_layouts: &[&bind_group_layout],
-            push_constant_ranges: &[],
-        });
-    let compute_pipeline = sc
-        .device
-        .create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-            label: None,
-            layout: Some(&pipeline_layout),
-            module: &shader_module,
-            entry_point: "main",
-        });
+    let compute_pipeline = create_pipeline(&sc.device, &bind_group_layout, &shader_module);
 
     sc.queue.write_buffer(&input_buffer, 0, &input_bytes);
     let mut command_encoder = sc
@@ -199,7 +174,7 @@ async fn advanced(sc: &SystemContext, input: &Advanced) -> Advanced {
             8,  // c.a
             32, // c.b
             4,  // c.c
-            4, // d
+            4,  // d
         ],
     );
     let output_staging_buffer = create_staging_buffer(&sc.device, 32);
@@ -220,21 +195,7 @@ async fn advanced(sc: &SystemContext, input: &Advanced) -> Advanced {
             ))),
         });
 
-    let pipeline_layout = sc
-        .device
-        .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: None,
-            bind_group_layouts: &[&bind_group_layout],
-            push_constant_ranges: &[],
-        });
-    let compute_pipeline = sc
-        .device
-        .create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-            label: None,
-            layout: Some(&pipeline_layout),
-            module: &shader_module,
-            entry_point: "main",
-        });
+    let compute_pipeline = create_pipeline(&sc.device, &bind_group_layout, &shader_module);
 
     sc.queue.write_buffer(&input_buffer, 0, &input_bytes);
     let mut command_encoder = sc
@@ -288,21 +249,7 @@ async fn in_uniform(sc: &SystemContext, input: &InUniform) -> InUniform {
         true,
     );
 
-    let pipeline_layout = sc
-        .device
-        .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: None,
-            bind_group_layouts: &[&bind_group_layout],
-            push_constant_ranges: &[],
-        });
-    let compute_pipeline = sc
-        .device
-        .create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-            label: None,
-            layout: Some(&pipeline_layout),
-            module: &shader_module,
-            entry_point: "main",
-        });
+    let compute_pipeline = create_pipeline(&sc.device, &bind_group_layout, &shader_module);
 
     sc.queue.write_buffer(&input_buffer, 0, &input_bytes);
     let mut command_encoder = sc

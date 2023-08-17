@@ -1,4 +1,6 @@
-use crate::utils::{create_input_buffer, create_output_buffers, create_staging_buffer};
+use crate::utils::{
+    create_input_buffer, create_output_buffers, create_pipeline, create_staging_buffer,
+};
 
 use super::{
     advanced, beginner, create_bind_group, in_uniform, intermediate,
@@ -15,9 +17,9 @@ async fn advanced_inner(sc: &SystemContext, input: &AdvancedInner) -> AdvancedIn
     let output_buffers = create_output_buffers(
         &sc.device,
         &[
-            8, // a
+            8,  // a
             32, // b
-            4, // c
+            4,  // c
         ],
     );
     let output_staging_buffer = create_staging_buffer(&sc.device, 32);
@@ -38,21 +40,7 @@ async fn advanced_inner(sc: &SystemContext, input: &AdvancedInner) -> AdvancedIn
             ))),
         });
 
-    let pipeline_layout = sc
-        .device
-        .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: None,
-            bind_group_layouts: &[&bind_group_layout],
-            push_constant_ranges: &[],
-        });
-    let compute_pipeline = sc
-        .device
-        .create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-            label: None,
-            layout: Some(&pipeline_layout),
-            module: &shader_module,
-            entry_point: "main",
-        });
+    let compute_pipeline = create_pipeline(&sc.device, &bind_group_layout, &shader_module);
 
     sc.queue.write_buffer(&input_buffer, 0, &input_bytes);
     let mut command_encoder = sc

@@ -99,6 +99,27 @@ pub fn create_bind_group(
     (bind_group_layout, bind_group)
 }
 
+/// Creates a basic compute pipeline suitable for the sub-examples.
+///
+/// Note that the entry point will always be "main".
+pub fn create_pipeline(
+    device: &wgpu::Device,
+    bind_group_layout: &wgpu::BindGroupLayout,
+    shader_module: &wgpu::ShaderModule,
+) -> wgpu::ComputePipeline {
+    let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+        label: None,
+        bind_group_layouts: &[bind_group_layout],
+        push_constant_ranges: &[],
+    });
+    device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+        label: None,
+        layout: Some(&layout),
+        module: shader_module,
+        entry_point: "main",
+    })
+}
+
 pub async fn get_bytes_from_buffer(
     buffer: &wgpu::Buffer,
     staging_buffer: &wgpu::Buffer,
