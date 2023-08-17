@@ -7,7 +7,7 @@ use structs::{
     Advanced, AdvancedInner, AsWgslBytes, Beginner, FromWgslBuffers, InUniform, InUniformInner,
     Intermediate,
 };
-use utils::example_create_bind_group;
+use utils::{create_input_buffer, create_output_buffers, create_staging_buffer, example_create_bind_group};
 
 use pollster::FutureExt;
 
@@ -54,36 +54,22 @@ impl SystemContext {
 async fn beginner(sc: &SystemContext, input: &Beginner) -> Beginner {
     let input_bytes = input.as_wgsl_bytes();
 
-    let input_buffer = sc.device.create_buffer(&wgpu::BufferDescriptor {
-        label: None,
-        size: input_bytes.len() as u64,
-        usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
-        mapped_at_creation: false,
-    });
-    let a_output_buffer = sc.device.create_buffer(&wgpu::BufferDescriptor {
-        label: None,
-        size: 4,
-        usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
-        mapped_at_creation: false,
-    });
-    let b_output_buffer = sc.device.create_buffer(&wgpu::BufferDescriptor {
-        label: None,
-        size: 8,
-        usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
-        mapped_at_creation: false,
-    });
-    let output_staging_buffer = sc.device.create_buffer(&wgpu::BufferDescriptor {
-        label: None,
-        // Largest member
-        size: 8,
-        usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
-        mapped_at_creation: false,
-    });
+    let input_buffer = create_input_buffer(&sc.device, input_bytes.len() as u64, false);
+    let output_buffers = create_output_buffers(
+        &sc.device,
+        &[
+            // a
+            4,
+            // b
+            8,
+        ]
+    );
+    let output_staging_buffer = create_staging_buffer(&sc.device, 8);
 
     let (bind_group_layout, bind_group) = example_create_bind_group(
         &sc.device,
         &input_buffer,
-        &[&a_output_buffer, &b_output_buffer],
+        &output_buffers.iter().collect::<Vec<&_>>(),
     );
 
     let shader_module = sc
@@ -125,7 +111,7 @@ async fn beginner(sc: &SystemContext, input: &Beginner) -> Beginner {
     sc.queue.submit(Some(command_encoder.finish()));
 
     Beginner::from_wgsl_buffers(
-        &[&a_output_buffer, &b_output_buffer],
+        &output_buffers.iter().collect::<Vec<&_>>(),
         &output_staging_buffer,
         &sc.device,
         &sc.queue,
@@ -135,34 +121,24 @@ async fn beginner(sc: &SystemContext, input: &Beginner) -> Beginner {
 async fn intermediate(sc: &SystemContext, input: &Intermediate) -> Intermediate {
     let input_bytes = input.as_wgsl_bytes();
 
-    let input_buffer = sc.device.create_buffer(&wgpu::BufferDescriptor {
-        label: None,
-        size: input_bytes.len() as u64,
-        usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
-        mapped_at_creation: false,
-    });
-    let mut member_buffers = Vec::<wgpu::Buffer>::with_capacity(3);
-    // 4, 12, and 8 are our member sizes.
-    for size in [4, 12, 8] {
-        member_buffers.push(sc.device.create_buffer(&wgpu::BufferDescriptor {
-            label: None,
-            size,
-            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
-            mapped_at_creation: false,
-        }));
-    }
-    let output_staging_buffer = sc.device.create_buffer(&wgpu::BufferDescriptor {
-        label: None,
-        // Largest member.
-        size: 12,
-        usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
-        mapped_at_creation: false,
-    });
+    let input_buffer = create_input_buffer(&sc.device, input_bytes.len() as u64, false);
+    let output_buffers = create_output_buffers(
+        &sc.device,
+        &[
+            // a
+            4,
+            // b
+            12,
+            // c
+            8,
+        ]
+    );
+    let output_staging_buffer = create_staging_buffer(&sc.device, 12);
 
     let (bind_group_layout, bind_group) = example_create_bind_group(
         &sc.device,
         &input_buffer,
-        &member_buffers.iter().collect::<Vec<_>>(),
+        &output_buffers.iter().collect::<Vec<_>>(),
     );
 
     let shader_module = sc
@@ -204,7 +180,7 @@ async fn intermediate(sc: &SystemContext, input: &Intermediate) -> Intermediate 
     sc.queue.submit(Some(command_encoder.finish()));
 
     Intermediate::from_wgsl_buffers(
-        member_buffers
+        output_buffers
             .iter()
             .collect::<Vec<&wgpu::Buffer>>()
             .as_slice(),
@@ -217,66 +193,30 @@ async fn intermediate(sc: &SystemContext, input: &Intermediate) -> Intermediate 
 async fn advanced(sc: &SystemContext, input: &Advanced) -> Advanced {
     let input_bytes = input.as_wgsl_bytes();
 
-    let input_buffer = sc.device.create_buffer(&wgpu::BufferDescriptor {
-        label: None,
-        size: input_bytes.len() as u64,
-        usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
-        mapped_at_creation: false,
-    });
-    let a_output_buffer = sc.device.create_buffer(&wgpu::BufferDescriptor {
-        label: None,
-        size: 4,
-        usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
-        mapped_at_creation: false,
-    });
-    let b_output_buffer = sc.device.create_buffer(&wgpu::BufferDescriptor {
-        label: None,
-        size: 12,
-        usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
-        mapped_at_creation: false,
-    });
-    let ca_output_buffer = sc.device.create_buffer(&wgpu::BufferDescriptor {
-        label: None,
-        size: 8,
-        usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
-        mapped_at_creation: false,
-    });
-    let cb_output_buffer = sc.device.create_buffer(&wgpu::BufferDescriptor {
-        label: None,
-        size: 32,
-        usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
-        mapped_at_creation: false,
-    });
-    let cc_output_buffer = sc.device.create_buffer(&wgpu::BufferDescriptor {
-        label: None,
-        size: 4,
-        usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
-        mapped_at_creation: false,
-    });
-    let d_output_buffer = sc.device.create_buffer(&wgpu::BufferDescriptor {
-        label: None,
-        size: 4,
-        usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
-        mapped_at_creation: false,
-    });
-    let output_staging_buffer = sc.device.create_buffer(&wgpu::BufferDescriptor {
-        label: None,
-        size: 32,
-        usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
-        mapped_at_creation: false,
-    });
+    let input_buffer = create_input_buffer(&sc.device, input_bytes.len() as u64, false);
+    let output_buffers = create_output_buffers(
+        &sc.device,
+        &[
+            // a
+            4,
+            // b
+            12,
+            // c.a
+            8,
+            // c.b
+            32,
+            // c.c
+            4,
+            // d
+            4,
+        ]
+    );
+    let output_staging_buffer = create_staging_buffer(&sc.device, 32);
 
     let (bind_group_layout, bind_group) = example_create_bind_group(
         &sc.device,
         &input_buffer,
-        &[
-            &a_output_buffer,
-            &b_output_buffer,
-            &ca_output_buffer,
-            &cb_output_buffer,
-            &cc_output_buffer,
-            &d_output_buffer,
-        ],
+        &output_buffers.iter().collect::<Vec<&_>>(),
     );
 
     let shader_module = sc
@@ -318,14 +258,7 @@ async fn advanced(sc: &SystemContext, input: &Advanced) -> Advanced {
     sc.queue.submit(Some(command_encoder.finish()));
 
     Advanced::from_wgsl_buffers(
-        &[
-            &a_output_buffer,
-            &b_output_buffer,
-            &ca_output_buffer,
-            &cb_output_buffer,
-            &cc_output_buffer,
-            &d_output_buffer,
-        ],
+        &output_buffers.iter().collect::<Vec<&_>>(),
         &output_staging_buffer,
         &sc.device,
         &sc.queue,
@@ -335,42 +268,21 @@ async fn advanced(sc: &SystemContext, input: &Advanced) -> Advanced {
 async fn in_uniform(sc: &SystemContext, input: &InUniform) -> InUniform {
     let input_bytes = input.as_wgsl_bytes();
 
-    let input_buffer = sc.device.create_buffer(&wgpu::BufferDescriptor {
-        label: None,
-        size: input_bytes.len() as u64,
-        usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        mapped_at_creation: false,
-    });
-    let aa_output_buffer = sc.device.create_buffer(&wgpu::BufferDescriptor {
-        label: None,
-        size: 4,
-        usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
-        mapped_at_creation: false,
-    });
-    let ab_output_buffer = sc.device.create_buffer(&wgpu::BufferDescriptor {
-        label: None,
-        size: 4,
-        usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
-        mapped_at_creation: false,
-    });
-    let b_output_buffer = sc.device.create_buffer(&wgpu::BufferDescriptor {
-        label: None,
-        size: 4,
-        usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
-        mapped_at_creation: false,
-    });
-    let c_output_buffer = sc.device.create_buffer(&wgpu::BufferDescriptor {
-        label: None,
-        size: 8,
-        usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
-        mapped_at_creation: false,
-    });
-    let output_staging_buffer = sc.device.create_buffer(&wgpu::BufferDescriptor {
-        label: None,
-        size: 8,
-        usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
-        mapped_at_creation: false,
-    });
+    let input_buffer = create_input_buffer(&sc.device, input_bytes.len() as u64, true);
+    let output_buffers = create_output_buffers(
+        &sc.device,
+        &[
+            // aa
+            4,
+            // ab
+            4,
+            // b
+            4,
+            // c
+            8,
+        ]
+    );
+    let output_staging_buffer = create_staging_buffer(&sc.device, 8);
 
     let shader_module = sc
         .device
@@ -381,12 +293,8 @@ async fn in_uniform(sc: &SystemContext, input: &InUniform) -> InUniform {
             ))),
         });
 
-    let output_buffers = [
-        &aa_output_buffer,
-        &ab_output_buffer,
-        &b_output_buffer,
-        &c_output_buffer,
-    ];
+    // We currently need to specify this explicitly since the create bind group does not
+    // *currently* support the input being a uniform.
     let mut layout_entires = Vec::<wgpu::BindGroupLayoutEntry>::with_capacity(5);
     layout_entires.push(wgpu::BindGroupLayoutEntry {
         binding: 0,
@@ -463,12 +371,7 @@ async fn in_uniform(sc: &SystemContext, input: &InUniform) -> InUniform {
     sc.queue.submit(Some(command_encoder.finish()));
 
     InUniform::from_wgsl_buffers(
-        &[
-            &aa_output_buffer,
-            &ab_output_buffer,
-            &b_output_buffer,
-            &c_output_buffer,
-        ],
+        &output_buffers.iter().collect::<Vec<&_>>(),
         &output_staging_buffer,
         &sc.device,
         &sc.queue,

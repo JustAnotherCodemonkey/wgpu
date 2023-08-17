@@ -1,3 +1,42 @@
+pub fn create_input_buffer(device: &wgpu::Device, size: u64, is_in_uniform: bool) -> wgpu::Buffer {
+    let memory_space_usage = if is_in_uniform {
+        wgpu::BufferUsages::UNIFORM
+    } else {
+        wgpu::BufferUsages::STORAGE
+    };
+    device.create_buffer(&wgpu::BufferDescriptor {
+        label: None,
+        size,
+        usage: memory_space_usage | wgpu::BufferUsages::COPY_DST,
+        mapped_at_creation: false,
+    })
+}
+
+pub fn create_output_buffers(device: &wgpu::Device, sizes: &[u64]) -> Vec<wgpu::Buffer> {
+    let mut output_vec = Vec::<wgpu::Buffer>::with_capacity(sizes.len());
+
+    for size in sizes.iter().copied() {
+        let buf = device.create_buffer(&wgpu::BufferDescriptor {
+            label: None,
+            size,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
+            mapped_at_creation: false,
+        });
+        output_vec.push(buf);
+    }
+
+    output_vec
+}
+
+pub fn create_staging_buffer(device: &wgpu::Device, largest_member_size: u64) -> wgpu::Buffer {
+    device.create_buffer(&wgpu::BufferDescriptor {
+        label: None,
+        size: largest_member_size,
+        usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
+        mapped_at_creation: false,
+    })
+}
+
 pub fn example_create_bind_group(
     device: &wgpu::Device,
     input_struct_buffer: &wgpu::Buffer,
