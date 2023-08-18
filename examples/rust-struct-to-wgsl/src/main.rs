@@ -9,48 +9,10 @@ use structs::{
 };
 use utils::{
     compute, create_bind_group, create_input_buffer, create_output_buffers, create_pipeline,
-    create_staging_buffer,
+    create_staging_buffer, SystemContext,
 };
 
 use pollster::FutureExt;
-
-/// This struct will allow us to easily keep track of common variables and easily
-/// set up for an example.
-struct SystemContext {
-    instance: wgpu::Instance,
-    adapter: wgpu::Adapter,
-    device: wgpu::Device,
-    queue: wgpu::Queue,
-}
-
-impl SystemContext {
-    async fn new() -> SystemContext {
-        let instance = wgpu::Instance::default();
-        let adapter = instance
-            .request_adapter(&wgpu::RequestAdapterOptions::default())
-            .await
-            .unwrap();
-        let (device, queue) = adapter
-            .request_device(
-                &wgpu::DeviceDescriptor {
-                    label: None,
-                    features: wgpu::Features::empty(),
-                    // Use high limits because regular downlevel allows only 4 storage buffers.
-                    limits: wgpu::Limits::default(),
-                },
-                None,
-            )
-            .await
-            .unwrap();
-
-        SystemContext {
-            instance,
-            adapter,
-            device,
-            queue,
-        }
-    }
-}
 
 // Running functions
 

@@ -1,3 +1,41 @@
+/// This struct will allow us to easily keep track of common variables and easily
+/// set up for an example.
+pub struct SystemContext {
+    pub instance: wgpu::Instance,
+    pub adapter: wgpu::Adapter,
+    pub device: wgpu::Device,
+    pub queue: wgpu::Queue,
+}
+
+impl SystemContext {
+    pub async fn new() -> SystemContext {
+        let instance = wgpu::Instance::default();
+        let adapter = instance
+            .request_adapter(&wgpu::RequestAdapterOptions::default())
+            .await
+            .unwrap();
+        let (device, queue) = adapter
+            .request_device(
+                &wgpu::DeviceDescriptor {
+                    label: None,
+                    features: wgpu::Features::empty(),
+                    // Use high limits because regular downlevel allows only 4 storage buffers.
+                    limits: wgpu::Limits::default(),
+                },
+                None,
+            )
+            .await
+            .unwrap();
+
+        SystemContext {
+            instance,
+            adapter,
+            device,
+            queue,
+        }
+    }
+}
+
 pub fn compute(
     input_buffer: &wgpu::Buffer,
     input_bytes: &[u8],
