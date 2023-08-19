@@ -1,11 +1,7 @@
 use super::{
-    structs::{AdvancedInner, AsWgslBytes, FromWgslBuffers},
-    Advanced, Beginner, InUniform, InUniformInner, Intermediate, SystemContext, ADVANCED_SHADER,
-    BEGINNER_SHADER, INTERMEDIATE_SHADER, IN_UNIFORM_SHADER,
-};
-use crate::utils::{
-    compute, create_input_buffer, create_output_buffers, create_pipeline, create_staging_buffer,
-    ExampleStruct,
+    structs::AdvancedInner, utils::ExampleStruct, Advanced, Beginner, InUniform, InUniformInner,
+    Intermediate, SystemContext, ADVANCED_SHADER, BEGINNER_SHADER, INTERMEDIATE_SHADER,
+    IN_UNIFORM_SHADER,
 };
 use pollster::FutureExt;
 
