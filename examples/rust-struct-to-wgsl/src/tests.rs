@@ -1,18 +1,20 @@
+use super::{
+    structs::{AdvancedInner, AsWgslBytes, FromWgslBuffers},
+    Advanced, Beginner, InUniform, InUniformInner, Intermediate, SystemContext, ADVANCED_SHADER,
+    BEGINNER_SHADER, INTERMEDIATE_SHADER, IN_UNIFORM_SHADER,
+};
 use crate::utils::{
     compute, create_input_buffer, create_output_buffers, create_pipeline, create_staging_buffer,
-    ExampleStruct
-};
-use super::{
-    create_bind_group,
-    structs::{AdvancedInner, AsWgslBytes, FromWgslBuffers},
-    Advanced, Beginner, InUniform, InUniformInner, Intermediate, SystemContext,
+    ExampleStruct,
 };
 use pollster::FutureExt;
+
+static ADVANCED_INNER_SHADER: &str = include_str!("test-advanced-inner.wgsl");
 
 #[test]
 fn rust_struct_to_wgsl_test_beginner() {
     fn t(input: Beginner, desired: Beginner, sc: &SystemContext) {
-        assert_eq!(input.run_as_example(sc, include_str!("beginner.wgsl"), false), desired);
+        assert_eq!(input.run_as_example(sc, BEGINNER_SHADER, false), desired);
     }
 
     let sc = SystemContext::new().block_on();
@@ -27,7 +29,10 @@ fn rust_struct_to_wgsl_test_beginner() {
 #[test]
 fn rust_struct_to_wgsl_test_intermediate() {
     fn t(input: Intermediate, desired: Intermediate, sc: &SystemContext) {
-        assert_eq!(input.run_as_example(sc, include_str!("intermediate.wgsl"), false), desired);
+        assert_eq!(
+            input.run_as_example(sc, INTERMEDIATE_SHADER, false),
+            desired
+        );
     }
 
     let sc = SystemContext::new().block_on();
@@ -50,7 +55,10 @@ fn rust_struct_to_wgsl_test_intermediate() {
 #[test]
 fn rust_struct_to_wgsl_test_advanced_inner() {
     fn t(input: AdvancedInner, desired: AdvancedInner, sc: &SystemContext) {
-        assert_eq!(input.run_as_example(sc, include_str!("test-advanced-inner.wgsl"), false), desired);
+        assert_eq!(
+            input.run_as_example(sc, ADVANCED_INNER_SHADER, false),
+            desired
+        );
     }
 
     let sc = SystemContext::new().block_on();
@@ -73,7 +81,7 @@ fn rust_struct_to_wgsl_test_advanced_inner() {
 #[test]
 fn rust_struct_to_wgsl_test_advanced() {
     fn t(input: Advanced, desired: Advanced, sc: &SystemContext) {
-        assert_eq!(input.run_as_example(sc, include_str!("advanced.wgsl"), false), desired);
+        assert_eq!(input.run_as_example(sc, ADVANCED_SHADER, false), desired);
     }
 
     let sc = SystemContext::new().block_on();
@@ -106,7 +114,7 @@ fn rust_struct_to_wgsl_test_advanced() {
 #[test]
 fn rust_struct_to_wgsl_test_in_uniform() {
     fn t(input: InUniform, desired: InUniform, sc: &SystemContext) {
-        assert_eq!(input.run_as_example(sc, include_str!("in-uniform.wgsl"), true), desired);
+        assert_eq!(input.run_as_example(sc, IN_UNIFORM_SHADER, true), desired);
     }
 
     let sc = SystemContext::new().block_on();
