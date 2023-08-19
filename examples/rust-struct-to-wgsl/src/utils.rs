@@ -1,3 +1,5 @@
+use super::structs::{AsWgslBytes, FromWgslBuffers};
+
 /// This struct will allow us to easily keep track of common variables and easily
 /// set up for an example.
 pub struct SystemContext {
@@ -33,6 +35,69 @@ impl SystemContext {
             device,
             queue,
         }
+    }
+}
+
+pub trait ExampleStruct {
+    /// Passes `input` through WGSL and uses that to clone it.
+    /// 
+    /// `shader` must be the shader code itself, not the file name.
+    /// `uniform` represents whether the struct is meant to be placed in the uniform
+    /// memory space or the default, storage.
+    fn run_as_example(
+        &self,
+        sc: &SystemContext,
+        shader: &str,
+        uniform: bool,
+    ) -> Self;
+}
+
+impl<T> ExampleStruct for T
+where
+    T: AsWgslBytes + FromWgslBuffers
+{
+    fn run_as_example(
+        &self,
+        sc: &SystemContext,
+        shader: &str,
+        uniform: bool,
+    ) -> Self {
+        let input_bytes = self.as_wgsl_bytes();
+        let desired_buffer_sizes = T::desired_buffer_sizes();
+    
+        let input_buffer = create_input_buffer(&sc.device, input_bytes.len() as u64, uniform);
+        let output_buffers = create_output_buffers(&sc.device, &desired_buffer_sizes);
+        let staging_buffer = create_staging_buffer(&sc.device, *desired_buffer_sizes.iter().max().unwrap());
+        let (bind_group_layout, bind_group) = create_bind_group(
+            &sc.device,
+            &input_buffer,
+            &output_buffers.iter().collect::<Vec<_>>(),
+            uniform,
+        );
+    
+        let shader_module = sc
+            .device
+            .create_shader_module(wgpu::ShaderModuleDescriptor {
+                label: None,
+                source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(shader)),
+            });
+        let compute_pipeline = create_pipeline(&sc.device, &bind_group_layout, &shader_module);
+    
+        compute(
+            &input_buffer,
+            &input_bytes,
+            &sc.device,
+            &sc.queue,
+            &compute_pipeline,
+            &bind_group,
+        );
+    
+        T::from_wgsl_buffers(
+            &output_buffers.iter().collect::<Vec<_>>(),
+            &staging_buffer,
+            &sc.device,
+            &sc.queue,
+        )
     }
 }
 
