@@ -261,6 +261,16 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
                     0,
                     // Ew gross I know. We have to do this to circumvent bytemuck's requirement
                     // that AppState implement POD (Plain Old Data).
+                    //
+                    // Note that there is a lot of consideration that must go into formatting a
+                    // buffer for a WGSL buffer, especially when the buffer is expected to
+                    // hold a variable that will be in the uniform memory space.
+                    // Luckily we don't have to worry about all of that due to the virtue that
+                    // the struct can be represented as an array of f32's.
+                    //
+                    // For more information on what those rules of serialization are and how
+                    // to serialize a more complex struct for WGSL, see the example
+                    // rust-struct-to-wgsl, specifically the contained guide.
                     bytemuck::bytes_of(&[
                         state_ref.cursor_pos[0],
                         state_ref.cursor_pos[1],
