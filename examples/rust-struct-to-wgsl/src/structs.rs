@@ -1,4 +1,4 @@
-//! *After reading the readme*, Try looking at the structs and guessing, yourself,
+//! *After reading the readme*, try looking at the structs and guessing, yourself,
 //! what we will do to format it into bytes for WGSL. The solutions with explanations
 //! are contained within the implementations of [`AsWgslBytes`] for each of the
 //! structs.
