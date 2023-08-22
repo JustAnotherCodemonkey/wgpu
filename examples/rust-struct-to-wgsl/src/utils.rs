@@ -92,6 +92,10 @@ where
     }
 }
 
+/// Manages the actual dispatch to the GPU after all buffers for the example have been created.
+/// 
+/// Note that although the queue is submitted, it is not guaranteed at this point that
+/// the workload be executed until, say, a call to [`get_bytes_from_buffer`].
 pub fn compute(
     input_buffer: &wgpu::Buffer,
     input_bytes: &[u8],
@@ -113,6 +117,7 @@ pub fn compute(
     queue.submit(Some(command_encoder.finish()));
 }
 
+/// Creates the input buffer that will contain the actual example struct.
 pub fn create_input_buffer(device: &wgpu::Device, size: u64, is_in_uniform: bool) -> wgpu::Buffer {
     let memory_space_usage = if is_in_uniform {
         wgpu::BufferUsages::UNIFORM
@@ -127,6 +132,8 @@ pub fn create_input_buffer(device: &wgpu::Device, size: u64, is_in_uniform: bool
     })
 }
 
+/// Creates the output buffers that will contain the data of the example struct's
+/// deconstructed members.
 pub fn create_output_buffers(device: &wgpu::Device, sizes: &[u64]) -> Vec<wgpu::Buffer> {
     let mut output_vec = Vec::<wgpu::Buffer>::with_capacity(sizes.len());
 
@@ -143,6 +150,11 @@ pub fn create_output_buffers(device: &wgpu::Device, sizes: &[u64]) -> Vec<wgpu::
     output_vec
 }
 
+/// Creates the output staging buffer.
+/// 
+/// If you've looked at any of the other examples regarding computing on the GPU, you're
+/// probably familiar with the idea of a staging buffer and why it's necessary in the current
+/// WebGPU specification.
 pub fn create_staging_buffer(device: &wgpu::Device, largest_member_size: u64) -> wgpu::Buffer {
     device.create_buffer(&wgpu::BufferDescriptor {
         label: None,
@@ -235,6 +247,10 @@ pub fn create_pipeline(
     })
 }
 
+/// Copies the bytes from an output staging buffer and returns them as a Vec.
+/// 
+/// This function will force the hand of the lazy execution and guarantee that any dispatch
+/// is executed.
 pub async fn get_bytes_from_buffer(
     buffer: &wgpu::Buffer,
     staging_buffer: &wgpu::Buffer,
