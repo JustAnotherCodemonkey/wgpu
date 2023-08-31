@@ -83,7 +83,7 @@ For those into the technical nitty-gritty yet too lazy to read the spec, the off
 
 Again, note that "AlignOfMember" and "SizeOfMember" are used and not `AlignOf(M)` and `SizeOf(M)` due to the fact that member alignments and sizes may be different than those of their types.
 
-If all this theoretical speak is sliding off your brain or you're starting to get confused, it's likely some concrete examples will help in the relevant part of [How to Create a WGSL-Friendly Byte Buffer for Any Type](#how-to-create-a-wgsl-friendly-byte-buffer-for-any-type) (TODO: Link the actual section).
+If all this theoretical speak is sliding off your brain or you're starting to get confused, it's likely some concrete instructions will help in the relevant part of [How to Create a WGSL-Friendly Byte Buffer for Any Type](#how-to-create-a-wgsl-friendly-byte-buffer-for-any-type) (TODO: Link the actual section).
 
 ## How to Create a WGSL-Friendly Byte Buffer for Any Type
 
